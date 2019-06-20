@@ -1,0 +1,58 @@
+/**
+ * @file usih_type.h
+ * @brief User Space Interrupt Handler data types
+ * @author Haesu Gwon <haesu.gwon@samsung.com>
+ * 2011 Samsung Electronics
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+#ifndef __US_INTERRUPT_HANDLER_TYPE_H
+#define __US_INTERRUPT_HANDLER_TYPE_H
+
+enum usih_intr_type {
+	INTR_SSIF_VD_FALLING,
+	INTR_SSIF_USER_DEF0,
+	INTR_SSIF_USER_DEF1,
+	INTR_SSIF_USER_DEF2,
+	INTR_SSIF_USER_DEF3,
+	INTR_SSIF_USER_DEF4,
+	INTR_SSIF_USER_DEF5,
+	INTR_SSIF_USER_DEF6,
+	INTR_SSIF_MAX,
+	INTR_PP_DPC_LUT_GEN_DONE,
+	INTR_PP_CS_LUT_GEN_DONE,
+	INTR_PP_WDMA_WRITE_DONE,
+	INTR_PP_RDMA_READ_DONE,
+	INTR_PP_MIPI_RX_DONE,
+	INTR_PP_MIPI_TX_DONE,
+	INTR_PP_MAX,
+	INTR_3A_ANY,
+	INTR_3A_MAX,
+	INTR_IPCM_B2Y_DONE,
+	INTR_IPCM_RSZ_DONE,
+	INTR_IPCM_SRSZ_DONE,
+	INTR_IPCM_LDC_DONE,
+	INTR_IPCM_MD_GMD_DONE,
+	INTR_IPCM_MD_RMD_DONE,
+	INTR_IPCM_MAX,
+	INTR_IPCS_B2Y_DONE,
+	INTR_IPCS_RSZ_DONE,
+	INTR_IPCS_SRSZ_DONE,
+	INTR_IPCS_SRSZ2_DONE,
+	INTR_IPCS_MAX,
+	INTR_LDC_DONE,
+	INTR_LDC_MAX,
+	INTR_GPIO_DONE,
+	INTR_GPIO_MAX,
+	INTR_PWM_DONE,
+	INTR_PWM_MAX,
+	INTR_SPWM_DONE,
+	INTR_SPWM_MAX,
+	INTR_TIMER_DONE,
+	INTR_TIMER_MAX
+};
+
+#endif /* __US_INTERRUPT_HANDLER_TYPE_H */
+

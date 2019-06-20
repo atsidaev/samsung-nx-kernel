@@ -386,7 +386,11 @@ static int __init cmdline_parser_init(void)
 	return register_mtd_parser(&cmdline_parser);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 module_init(cmdline_parser_init);
+#else
+fast_dev_initcall(cmdline_parser_init);
+#endif
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Marius Groeger <mag@sysgo.de>");

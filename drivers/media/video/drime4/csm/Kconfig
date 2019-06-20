@@ -1,0 +1,8 @@
+#
+# selection configurations for CSM(Capture Sequence Manager)
+#
+
+config DRIME4_CSM
+	tristate "Samsung DRIMe4 CSM(Capture Sequence Manager)"
+	---help---
+	  This is a Capture Sequence Manage for DRIMe4

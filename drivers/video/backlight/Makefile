@@ -14,6 +14,12 @@ obj-$(CONFIG_LCD_TOSA)		   += tosa_lcd.o
 obj-$(CONFIG_LCD_S6E63M0)	+= s6e63m0.o
 obj-$(CONFIG_LCD_LD9040)	+= ld9040.o
 obj-$(CONFIG_LCD_AMS369FG06)	+= ams369fg06.o
+obj-$(CONFIG_LCD_CH2330)	+= ch2330.o
+obj-$(CONFIG_LCD_A030VVN01_3)	+= a030vvn01_3.o
+obj-$(CONFIG_LCD_SMD_WVGA_AMOLED)	+= smd_wvga_amoled.o
+ifeq ($(CONFIG_DRM),)
+	obj-$(CONFIG_MACH_D4_NX300)     += nx300_lcd_dev.o
+endif
 
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
@@ -43,3 +49,5 @@ obj-$(CONFIG_BACKLIGHT_88PM860X) += 88pm860x_bl.o
 obj-$(CONFIG_BACKLIGHT_PCF50633)	+= pcf50633-backlight.o
 obj-$(CONFIG_BACKLIGHT_AAT2870) += aat2870_bl.o
 obj-$(CONFIG_BACKLIGHT_OT200) += ot200_bl.o
+
+obj-$(CONFIG_FB_DRIME4) += ch2330.o

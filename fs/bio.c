@@ -1751,4 +1751,9 @@ static int __init init_bio(void)
 
 	return 0;
 }
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(init_bio);
+#else
+fast_subsys_initcall(init_bio);
+#endif
+

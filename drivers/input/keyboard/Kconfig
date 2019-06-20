@@ -606,4 +606,14 @@ config KEYBOARD_W90P910
 	  To compile this driver as a module, choose M here: the
 	  module will be called w90p910_keypad.
 
+config KEYBOARD_DRIME4ES
+	tristate "DRIME4ES Matrix Keypad support"
+	depends on ARCH_DRIME4
+	help
+	  Say Y here to enable the matrix keypad on evaluation board
+	  based on DRIME4.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called drime4_keypad.
+
 endif

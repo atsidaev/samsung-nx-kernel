@@ -895,6 +895,10 @@ out:
 static int mmc_sdio_suspend(struct mmc_host *host)
 {
 	int i, err = 0;
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	int err1 = 0;
+	struct sdio_func *ath6kl = NULL;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	for (i = 0; i < host->card->sdio_funcs; i++) {
 		struct sdio_func *func = host->card->sdio_func[i];
@@ -903,8 +907,13 @@ static int mmc_sdio_suspend(struct mmc_host *host)
 			if (!pmops || !pmops->suspend || !pmops->resume) {
 				/* force removal of entire card in that case */
 				err = -ENOSYS;
-			} else
+			} else {
 				err = pmops->suspend(&func->dev);
+			}
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+			if (func->cutpower_setup)
+				ath6kl = func;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 			if (err)
 				break;
 		}
@@ -923,15 +932,52 @@ static int mmc_sdio_suspend(struct mmc_host *host)
 		mmc_release_host(host);
 	}
 
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	if (!err && ath6kl && ath6kl->cutpower_setup_cb) {
+		err1 = ath6kl->cutpower_setup_cb(0);
+		if(err1) {
+			printk(KERN_EMERG "[%d:%s()] ath6kl->cutpower_setup_cb() is Error(%d)\n", __LINE__, __func__, err1);
+		}
+		else {
+			//printk(KERN_EMERG "[%d:%s()] ath6kl->cutpower_setup_cb() is OK\n", __LINE__, __func__);
+		}
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 	return err;
 }
 
 static int mmc_sdio_resume(struct mmc_host *host)
 {
 	int i, err = 0;
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	int err1 = 0;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
+
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	/* We need to power on the wifi chip first, if it fails to restore
+	 * the power, just ignore it and continue the resume of other parts
+	 * */
+	for (i = 0; i < host->card->sdio_funcs; i++) {
+		struct sdio_func *func = host->card->sdio_func[i];
+		if (func && sdio_func_present(func) && func->dev.driver) {
+			if (func->cutpower_setup && func->cutpower_setup_cb) {
+				err1 = func->cutpower_setup_cb(1);
+				if (!err1) {
+					//printk(KERN_EMERG "[%d:%s()] Success to power on ath6kl_sdio hw\n", __LINE__, __func__);
+					mmc_delay(10);
+				}
+				else {
+					printk(KERN_EMERG "[%d:%s()] Fail to power on ath6kl_sdio hw(%d)\n", __LINE__, __func__, err1);
+				}
+				break;
+			}
+		}
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	/* Basic card reinitialization. */
 	mmc_claim_host(host);

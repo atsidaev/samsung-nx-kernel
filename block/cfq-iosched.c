@@ -4232,7 +4232,11 @@ static void __exit cfq_exit(void)
 	kmem_cache_destroy(cfq_pool);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 module_init(cfq_init);
+#else
+fast_dev_initcall(cfq_init);
+#endif
 module_exit(cfq_exit);
 
 MODULE_AUTHOR("Jens Axboe");

@@ -901,4 +901,9 @@ static int __init chr_dev_init(void)
 	return tty_init();
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 fs_initcall(chr_dev_init);
+#else
+fast_fs_initcall(chr_dev_init);
+#endif
+

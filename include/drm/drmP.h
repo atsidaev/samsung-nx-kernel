@@ -1602,7 +1602,7 @@ struct drm_sysfs_class;
 extern struct class *drm_sysfs_create(struct module *owner, char *name);
 extern void drm_sysfs_destroy(void);
 extern int drm_sysfs_device_add(struct drm_minor *minor);
-extern void drm_sysfs_hotplug_event(struct drm_device *dev);
+extern void drm_sysfs_hotplug_event(struct drm_device *dev, int value);
 extern void drm_sysfs_device_remove(struct drm_minor *minor);
 extern char *drm_get_connector_status_name(enum drm_connector_status status);
 extern int drm_sysfs_connector_add(struct drm_connector *connector);

@@ -170,6 +170,7 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		*wakeup = pm_wakeup_pending();
 		if (!(suspend_test(TEST_CORE) || *wakeup)) {
 			error = suspend_ops->enter(state);
+            SCORE_TIME_CHECK_AFTER_STR(0);
 			events_check_enabled = false;
 		}
 		syscore_resume();
@@ -268,6 +269,9 @@ static void suspend_finish(void)
  * Fail if that's not the case.  Otherwise, prepare for system suspend, make the
  * system enter the given sleep state and clean up after wakeup.
  */
+#ifdef  CONFIG_SCORE_FBDBG
+extern int gpio_set_val;
+#endif
 static int enter_state(suspend_state_t state)
 {
 	int error;
@@ -297,9 +301,14 @@ static int enter_state(suspend_state_t state)
 
  Finish:
 	pr_debug("PM: Finishing wakeup.\n");
+    SCORE_TIME_CHECK_AFTER_STR(1);
 	suspend_finish();
  Unlock:
 	mutex_unlock(&pm_mutex);
+#ifdef  CONFIG_SCORE_FBDBG
+    gpio_set_val=1;
+#endif
+    SCORE_TIME_CHECK_AFTER_STR(2);
 	return error;
 }
 

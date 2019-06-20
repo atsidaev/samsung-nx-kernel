@@ -273,6 +273,14 @@ config USB_S3C_HSOTG
 	  The Samsung S3C64XX USB2.0 high-speed gadget controller
 	  integrated into the S3C64XX series SoC.
 
+config USB_DRIME4_SS_UDC
+	tristate "DRIME4 SuperSpeed USB 3.0 Device controller"
+	depends on DRIME4_USB3_DRD
+	select USB_GADGET_DUALSPEED
+	select USB_GADGET_SUPERSPEED
+	help
+	   DWC SuperSpeed USB 3.0 Device controller.
+
 config USB_IMX
 	tristate "Freescale i.MX1 USB Peripheral Controller"
 	depends on ARCH_MXC
@@ -946,5 +954,111 @@ config USB_G_WEBCAM
 	  dynamically linked module called "g_webcam".
 
 endchoice
+
+#
+# It's for static usb functions enable by Wonjung kim (DI)
+#
+config USB_ANDROID
+	boolean "Android Gadget"
+##	depends on SWITCH
+	help
+	  The Android gadget driver supports multiple USB functions.
+	  The functions can be configured via a board file and may be
+	  enabled and disabled dynamically.
+
+config USB_ANDROID_ACM
+	boolean "Android gadget ACM serial function"
+	depends on USB_ANDROID
+	help
+	  Provides ACM serial function for android gadget driver.
+
+config USB_DUN_SUPPORT
+	boolean "DUN support function"
+	depends on USB_ANDROID_ACM
+	help
+	  Provides USB modem serial driver.
+
+config USB_ANDROID_ADB
+	boolean "Android gadget adb function"
+	depends on USB_ANDROID
+	help
+	  Provides adb function for android gadget driver.
+
+config USB_ANDROID_MASS_STORAGE
+	boolean "Android gadget mass storage function"
+	depends on USB_ANDROID
+	help
+	  Provides USB mass storage function for android gadget driver.
+
+config USB_ANDROID_MTP
+	boolean "Android MTP function"
+	depends on USB_ANDROID
+	help
+	  Provides Media Transfer Protocol (MTP) support for android gadget driver.
+
+config USB_ANDROID_RNDIS
+	boolean "Android gadget RNDIS ethernet function"
+	depends on USB_ANDROID
+	help
+	  Provides RNDIS ethernet function for android gadget driver.
+
+config USB_ANDROID_RNDIS_WCEIS
+        boolean "Use Windows Internet Sharing Class/SubClass/Protocol"
+        depends on USB_ANDROID_RNDIS
+        help
+         Causes the driver to look like a Windows-compatible Internet
+         Sharing device, so Windows auto-detects it.
+
+         If you enable this option, the device is no longer CDC ethernet
+         compatible.
+
+config USB_ANDROID_ECM
+        boolean "Android gadget ECM function"
+        depends on USB_ANDROID
+        help
+          Provides ECM function for android gadget driver.
+
+config USB_ANDROID_SAMSUNG_COMPOSITE
+	boolean "Samsung Composite function"
+	depends on USB_ANDROID
+	help
+	  Provides SAMSUNG composite driver using ACM, UMS, ADB, MTP, RNDIS
+
+config USB_ANDROID_SAMSUNG_COMPOSITE_ADVANCED
+	boolean "Samsung Composite function anvanced"
+	depends on USB_ANDROID_SAMSUNG_COMPOSITE
+	help
+	  Provides SAMSUNG composite driver using ACM, UMS, ADB, MTP, RNDIS
+
+config USB_ANDROID_SAMSUNG_ESCAPE
+	boolean "Use escape usb host driver in PC side."
+	depends on USB_ANDROID_SAMSUNG_COMPOSITE
+	help
+	  If you enable this option, the device will setting custom IAD for Escape driver.
+
+config USB_ANDROID_SAMSUNG_KIES_UMS
+	boolean "Use UMS composite in Samsung Kies mode"
+	depends on USB_ANDROID_SAMSUNG_ESCAPE
+	help
+	  If you enable this option, the ums will be used in Kies mode.
+
+config CONFIG_USB_ANDROID_SAMSUNG_RNDIS_WITH_MS_COMPOSITE
+	boolean "Use RNDIS with ms composite in PC side."
+	depends on USB_ANDROID_SAMSUNG_COMPOSITE
+	help
+	  If you enable this option, the device will setting custom IAD for to use ms composite.
+
+config USB_ANDROID_SAMSUNG_MTP
+	boolean "Samsung MTP function"
+	depends on USB_ANDROID
+	help
+	  Provides Media Transfer Protocol (MTP) support for samsung gadget driver.
+
+config USB_ANDROID_SAMSUNG_SDB
+	boolean "Samsung SDB function"
+	depends on USB_ANDROID && USB_ANDROID_SAMSUNG_COMPOSITE_ADVANCED && !USB_ANDROID_ADB
+	help
+	  Provides Samsung SDB(for SDK) support for samsung gadget driver.
+
 
 endif # USB_GADGET

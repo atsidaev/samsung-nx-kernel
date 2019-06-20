@@ -1,0 +1,26 @@
+#
+# selection configurations for Sub LCD Panel Selection
+#
+
+choice
+	prompt "SLCD selection"
+	depends on SUB_LCD_SELECT
+	---help---
+	  Sub LCD selection
+
+config SLCD_PANEL_1
+	bool "720P YCC output for bridge IC"
+	---help---
+	  This is 720P YCC output for bridge IC.
+
+config SLCD_PANEL_2
+	bool "Sub LCD Panel 2"
+	---help---
+	  This is a LCD Panel 2.
+
+config SLCD_PANEL_3
+	bool "Sub LCD Panel 3"
+	---help---
+	  This is a LCD Panel 3.
+
+endchoice

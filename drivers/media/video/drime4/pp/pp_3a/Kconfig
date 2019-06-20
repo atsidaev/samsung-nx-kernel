@@ -1,0 +1,10 @@
+#
+# D4 PP 3A drivers configurations
+#
+
+config DRIME4_PP_3A
+	tristate "Samsung DRIMe4 PP 3A driver"
+	depends on VIDEO_DEV && VIDEO_V4L2 && ARCH_DRIME4  && DRIME4_PP_CORE
+	---help---
+	  This is a PP 3a driver for Samsung DRIMe4
+

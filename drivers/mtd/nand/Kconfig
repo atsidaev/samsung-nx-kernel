@@ -225,6 +225,49 @@ config MTD_NAND_PPCHAMELEONEVB
 	help
 	  This enables the NAND flash driver on the PPChameleon EVB Board.
 
+config MTD_NAND_DRIME4
+	tristate "NAND Flash support for Samsung DRIME4 SoCs"
+	depends on ARCH_DRIME4
+	help
+	  This enables the NAND flash controller on the DRIME4
+	  SoCs
+
+	  No board specific support is done by this driver, each board
+	  must advertise a platform_device for the driver to attach.
+
+config MTD_NAND_DRIME4_DEBUG
+	bool "Samsung DRIME4 NAND driver debug"
+	depends on MTD_NAND_DRIME4
+	help
+	  Enable debugging of the S3C NAND driver
+
+config MTD_NAND_DRIME4_HWECC
+	bool "Samsung DRIME4 NAND Hardware ECC"
+	depends on MTD_NAND_DRIME4
+	help
+	  Enable the use of the controller's internal ECC generator when
+	  using NAND. Early versions of the chips have had problems with
+	  incorrect ECC generation, and if using these, the default of
+	  software ECC is preferable.
+
+config MTD_NAND_DRIME4_8BIT_ECC
+	bool "Samsung DRIME4 NAND Hardware 8BIT ECC"
+#	depends on MACH_D4_GALAXYNX && MTD_NAND_DRIME4
+    depends on MTD_NAND_DRIME4
+    help
+	  Select Hardwarel ECC Type. 
+	  In GalaxyNX, Using 8Bit ECC Type Nand Flash.
+	  
+config MTD_NAND_DRIME4_CLKSTOP
+	bool "Samsung DRIME4 NAND IDLE clock stop"
+	depends on MTD_NAND_DRIME4
+	default n
+	help
+	  Stop the clock to the NAND controller when there is no chip
+	  selected to save power. This will mean there is a small delay
+	  when the is NAND chip selected or released, but will save
+	  approximately 5mA of power when there is nothing happening.
+
 config MTD_NAND_S3C2410
 	tristate "NAND Flash support for Samsung S3C SoCs"
 	depends on ARCH_S3C24XX || ARCH_S3C64XX

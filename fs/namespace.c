@@ -2618,3 +2618,19 @@ bool our_mnt(struct vfsmount *mnt)
 {
 	return check_mnt(real_mount(mnt));
 }
+#if defined(CONFIG_SCORE_FBDBG_FILE) || defined(CONFIG_PM_SCORE_EXTENDED_SNAPSHOT)
+struct dentry *mounted_dentry(struct dentry *dentry)
+{
+	unsigned u;
+
+	for (u = 0; u < HASH_SIZE; u++) {
+		struct mount *p;
+
+		list_for_each_entry(p, &mount_hashtable[u], mnt_hash) {
+			if (p->mnt.mnt_root == dentry)
+				return p->mnt_mountpoint;
+		}
+	}
+    return NULL;
+}
+#endif

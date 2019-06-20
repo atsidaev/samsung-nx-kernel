@@ -1,0 +1,588 @@
+# arch/arm/mach-drime4/Kconfig
+#
+# Copyright (c) 2011 Samsung Electronics Co., Ltd.
+#		http://www.samsung.com/
+#
+# Licensed under GPLv2
+
+# Configuration options for the DRIME4
+
+if ARCH_DRIME4
+
+comment "SAMSUNG DRIMeIV options"
+
+config CPU_DRIME4
+	bool
+	help
+	  Enable DRIME4 CPU support
+
+#Machine support
+config MACH_D4JIG2ND
+	bool "DRIMeIV Jig 2nd board"
+	select CPU_DRIME4
+	select DRIME4_I2C
+#	select DRIME4_I2C0
+	select DRIME4_I2C2
+	select DRIME4_I2C3 #audio
+	select DRIME4_HRT
+	select DRIME4_ADC
+	select SPI_CH
+	select DRIME4_SPI0
+#	select DRIME4_SPI1
+	select DRIME4_SPI2
+#	select DRIME4_SPI3
+#	select DRIME4_SPI4
+	select DRIME4_SPI5
+	select DRIME4_DEV_DRM
+	select DRIME4_PMU
+	select PMU
+	help
+	  Machine support for SAMSUNG DRIMeIV Jig 2nd board.
+
+config MACH_D4_NX300
+	bool "DRIMeIV NX300 board, automatic detect board type"
+	select CPU_DRIME4
+	select DRIME4_I2C
+	select UDD_GROUP
+#	select DRIME4_I2C0
+#	select DRIME4_I2C2
+#	select DRIME4_I2C3 #audio
+	select DRIME4_HRT
+	select DRIME4_ADC
+	select SPI_CH
+	select DRIME4_SPI0
+	select DRIME4_SPI1
+	select DRIME4_SPI2
+	select DRIME4_SPI3
+	select DRIME4_SPI4
+	select DRIME4_SPI5
+	select UDD_SPI5
+	select UDD_SPI2
+	select DRIME4_UGPIO7
+	select DRIME4_UGPIO25
+	select DRIME4_UGPIO24
+	select DRIME4_DEV_RMU
+	select HT_PWM4
+	select HT_PWM7
+	select DRIME4_REAL_BOARD	
+	select DRIME4_DEV_DRM
+	select DRIME4_PMU
+	select PMU
+	help
+	  Machine support for SAMSUNG DRIMeIV NX300 board
+
+config MACH_D4_NX2000
+	bool "DRIMeIV NX2000 board, automatic detect board type"
+	select CPU_DRIME4
+	select DRIME4_I2C
+	select UDD_GROUP
+#	select DRIME4_I2C0
+#	select DRIME4_I2C2
+#	select DRIME4_I2C3 #audio
+	select DRIME4_HRT
+	select DRIME4_ADC
+	select SPI_CH
+	select DRIME4_SPI0
+	select DRIME4_SPI1
+	select DRIME4_SPI2
+	select DRIME4_SPI3
+	select DRIME4_SPI4
+	select DRIME4_SPI5
+	select UDD_SPI5
+	select UDD_SPI2
+	select DRIME4_UGPIO7
+	select DRIME4_UGPIO25
+	select DRIME4_UGPIO24
+	select DRIME4_DEV_RMU
+	select HT_PWM4
+	select HT_PWM7
+	select DRIME4_REAL_BOARD	
+	select DRIME4_DEV_DRM
+	select DRIME4_PMU
+	select PMU
+	help
+	  Machine support for SAMSUNG DRIMeIV NX2000 board
+	  
+config MACH_D4_GALAXYNX_SIMULATOR
+	bool "DRIMeIV GALAXY NX Simulator board, automatic detect board type"
+	select CPU_DRIME4
+#	select DRIME4_I2C
+	select UDD_GROUP
+#	select DRIME4_I2C0
+#	select DRIME4_I2C2
+#	select DRIME4_I2C3 #audio
+	select DRIME4_HRT
+	select DRIME4_ADC
+	select SPI_CH
+	select DRIME4_SPI0
+	select DRIME4_SPI1
+	select DRIME4_SPI2
+	select DRIME4_SPI3
+	select DRIME4_SPI4
+	select DRIME4_SPI5
+	select UDD_SPI5
+	select UDD_SPI2
+	select DRIME4_UGPIO7
+	select DRIME4_UGPIO25
+	select DRIME4_UGPIO24
+	select DRIME4_DEV_RMU
+#	select HT_PWM4
+#	select HT_PWM7
+	select DRIME4_REAL_BOARD	
+	select DRIME4_DEV_DRM
+	select DRIME4_PMU
+	select PMU
+	help
+	  Machine support for SAMSUNG DRIMeIV GALAXY NX Simulator board
+
+config MACH_D4_GALAXYNX
+	bool "DRIMeIV GALAXY NX board, automatic detect board type"
+	select CPU_DRIME4
+#	select DRIME4_I2C
+	select UDD_GROUP
+#	select DRIME4_I2C0
+	select DRIME4_HRT
+	select DRIME4_ADC
+	select SPI_CH
+#	select DRIME4_SPI1
+	select DRIME4_SPI2
+	select DRIME4_SPI4
+	select DRIME4_SPI5
+	select UDD_SPI5
+	select UDD_SPI2
+	select DRIME4_UGPIO7
+	select DRIME4_UGPIO25
+	select DRIME4_UGPIO24
+	select DRIME4_DEV_RMU
+	select HT_PWM4
+	select HT_PWM7
+	select DRIME4_REAL_BOARD	
+	select DRIME4_DEV_DRM
+	select DRIME4_PMU
+	select PMU
+	help
+	  Machine support for SAMSUNG DRIMeIV GALAXY NX board
+
+config DRIME4_REAL_BOARD
+	bool "Additional support for DRIME4 Real Board"
+
+config DRIME4_GALAXYNX_REAL_BOARD
+    bool "GalaxyU Real Board Support"
+
+config DRIME4_DEV_DRM
+	bool "DEV DRM support"
+	help
+	  DRIME4 DRM Framework.
+
+config DRIME4_HRT
+	bool "DRIME4 HRT (High Resolution Timer)"
+	select GENERIC_CLOCKEVENTS
+	help
+	  DRIME4 High Resolution Timer(HRT) using Timer Subsystem".
+
+menuconfig DRIME4_SI2C
+	bool "DRIMe4 Slave I2C"
+	depends on MACH_D4_GALAXYNX || MACH_D4_GALAXYNX_SIMULATOR
+
+if DRIME4_SI2C
+
+config DRIME4_SI2C0
+	bool "DRIME4 SI2C channel 0"
+
+config DRIME4_SI2C1
+	bool "DRIME4 SI2C channel 1"
+
+config DRIME4_SI2C2
+	bool "DRIME4 SI2C channel 2"
+
+config DRIME4_SI2C3
+	bool "DRIME4 SI2C channel 3"
+
+config DRIME4_SI2C4
+	bool "DRIME4 SI2C channel 4"
+
+config DRIME4_SI2C5
+	bool "DRIME4 SI2C channel 5"
+
+config DRIME4_SI2C6
+	bool "DRIME4 SI2C channel 6"
+endif
+
+
+menuconfig DRIME4_MI2C
+        bool "DRIMe4 Master I2C"
+	depends on MACH_D4_GALAXYNX || MACH_D4_GALAXYNX_SIMULATOR
+if DRIME4_MI2C
+
+config DRIME4_I2C0
+	bool "DRIME4 I2C channel 0"
+
+config DRIME4_I2C1
+	bool "DRIME4 I2C channel 1"
+
+config DRIME4_I2C2
+	bool "DRIME4 I2C channel 2"
+
+config DRIME4_I2C3
+	bool "DRIME4 I2C channel 3"
+
+config DRIME4_I2C4
+	bool "DRIME4 I2C channel 4"
+
+config DRIME4_I2C5
+	bool "DRIME4 I2C channel 5"
+
+config DRIME4_I2C6
+	bool "DRIME4 I2C channel 6"
+endif
+
+
+
+menuconfig DRIME4_I2C
+	bool "DRIME4 I2C channel select"
+
+if DRIME4_I2C
+
+config DRIME4_I2C0
+	bool "DRIME4 I2C channel 0"
+
+config DRIME4_I2C1
+	bool "DRIME4 I2C channel 1"
+
+config DRIME4_I2C2
+	bool "DRIME4 I2C channel 2"
+
+config DRIME4_I2C3
+	bool "DRIME4 I2C channel 3"
+
+config DRIME4_I2C4
+	bool "DRIME4 I2C channel 4"
+
+config DRIME4_I2C5
+	bool "DRIME4 I2C channel 5"
+
+config DRIME4_I2C6
+	bool "DRIME4 I2C channel 6"
+endif
+
+config DRIME4_BV
+    bool "DRIME4 Board Version check"
+
+menuconfig SPI_CH
+        bool "DRIMe4 SPI Channel Select "
+
+if SPI_CH
+config DRIME4_SPI0
+        bool "DRIME4 SPI channel 0"
+
+config UDD_SPI0
+  tristate "User Mode DRIMe4 SPI Support"
+        depends on DRIME4_SPI0
+        select SPI_UDD
+
+config DRIME4_SPI1
+        bool "DRIME4 SPI channel 1"
+
+config UDD_SPI1
+  tristate "User Mode DRIMe4 SPI Support"
+  depends on DRIME4_SPI1
+        select SPI_UDD
+
+config DRIME4_SPI2
+        bool "DRIME4 SPI channel 2"
+
+config UDD_SPI2
+  tristate "User Mode DRIMe4 SPI Support"
+  depends on DRIME4_SPI2
+        select SPI_UDD
+
+config DRIME4_SPI3
+        bool "DRIME4 SPI channel 3"
+
+config UDD_SPI3
+  tristate "User Mode DRIMe4 SPI Support"
+  depends on DRIME4_SPI3
+        select SPI_UDD
+config DRIME4_SPI4
+        bool "DRIME4 SPI channel 4"
+
+config UDD_SPI4
+        tristate "User Mode DRIMe4 SPI Support"
+  depends on DRIME4_SPI4
+        select SPI_UDD
+
+config DRIME4_SPI5
+        bool "DRIME4 SPI channel 5"
+
+config UDD_SPI5
+        tristate "User Mode DRIMe4 SPI Support"
+  depends on DRIME4_SPI5
+        select SPI_UDD
+
+config DRIME4_SPI6
+        bool "DRIME4 SPI channel 6"
+
+config UDD_SPI6
+        tristate "User Mode DRIMe4 SPI Support"
+  depends on DRIME4_SPI6
+        select SPI_UDD
+
+config SPI_MUX_SPI8
+	tristate "SPI MUX Channel 8"
+	depends on DRIME4_SPI6
+
+config DRIME4_SPI7
+        bool "DRIME4 SPI channel 7"
+
+config UDD_SPI7
+        tristate "User Mode DRIMe4 SPI Support"
+  depends on DRIME4_SPI7
+  select SPI_UDD
+
+config SPI_MUX_SPI9
+        tristate "SPI MUX Channel 9"
+        depends on DRIME4_SPI7
+endif
+
+menuconfig DRIME4_PWM
+	bool "DRIMe4 PWM Channels"
+
+if DRIME4_PWM
+config HT_PWM0
+	tristate "DRIMe4 HardWare Trigger PWM Channel 0"
+config UDD_PWM0
+  tristate "User Mode HT PWM Channel 0"
+	depends on HT_PWM0
+	select HT_PWM_UMODE
+
+config HT_PWM1
+	tristate "DRIMe4 HardWare Trigger PWM Channel 1"
+config UDD_PWM1
+  tristate "User Mode HT PWM Channel 1"
+	depends on HT_PWM1
+	select HT_PWM_UMODE
+
+config HT_PWM2
+	tristate "DRIMe4 HardWare Trigger PWM Channel 2"
+config UDD_PWM2
+  tristate "User Mode HT PWM Channel 2"
+	depends on HT_PWM2
+	select HT_PWM_UMODE
+
+config HT_PWM3
+	tristate "DRIMe4 HardWare Trigger PWM Channel 3"
+config UDD_PWM3
+  tristate "User Mode HT PWM Channel 3"
+	depends on HT_PWM3
+	select HT_PWM_UMODE
+
+config HT_PWM4
+	tristate "DRIMe4 HardWare Trigger PWM Channel 4"
+config UDD_PWM4
+  tristate "User Mode HT PWM Channel 4"
+	depends on HT_PWM4
+	select HT_PWM_UMODE
+
+config HT_PWM5
+	tristate "DRIMe4 HardWare Trigger PWM Channel 5"
+config UDD_PWM5
+  tristate "User Mode HT PWM Channel 5"
+	depends on HT_PWM5
+	select HT_PWM_UMODE
+
+config HT_PWM6
+	tristate "DRIMe4 HardWare Trigger PWM Channel 6"
+config UDD_PWM6
+  tristate "User Mode HT PWM Channel 6"
+	depends on HT_PWM6
+	select HT_PWM_UMODE
+
+config HT_PWM7
+	tristate "DRIMe4 HardWare Trigger PWM Channel 7"
+config UDD_PWM7
+  tristate "User Mode HT PWM Channel 7"
+	depends on HT_PWM7
+	select HT_PWM_UMODE
+
+config HT_PWM8
+	tristate "DRIMe4 HardWare Trigger PWM Channel 8"
+config UDD_PWM8
+  tristate "User Mode HT PWM Channel 8"
+	depends on HT_PWM8
+	select HT_PWM_UMODE
+
+config HT_PWM9
+	tristate "DRIMe4 HardWare Trigger PWM Channel 9"
+config UDD_PWM9
+  tristate "User Mode HT PWM Channel 9"
+	depends on HT_PWM9
+	select HT_PWM_UMODE
+
+config HT_PWM10
+	tristate "DRIMe4 HardWare Trigger PWM Channel 10"
+config UDD_PWM10
+  tristate "User Mode HT PWM Channel 10"
+	depends on HT_PWM10
+	select HT_PWM_UMODE
+
+config HT_PWM11
+	tristate "DRIMe4 HardWare Trigger PWM Channel 11"
+config UDD_PWM11
+  tristate "User Mode HT PWM Channel 11"
+	depends on HT_PWM11
+	select HT_PWM_UMODE
+
+config HT_PWM12
+	tristate "DRIMe4 HardWare Trigger PWM Channel 12"
+config UDD_PWM12
+  tristate "User Mode HT PWM Channel 12"
+	depends on HT_PWM12
+	select HT_PWM_UMODE
+
+config HT_PWM13
+	tristate "DRIMe4 HardWare Trigger PWM Channel 13"
+config UDD_PWM13
+  tristate "User Mode HT PWM Channel 13"
+	depends on HT_PWM13
+	select HT_PWM_UMODE
+
+config HT_PWM14
+	tristate "DRIMe4 HardWare Trigger PWM Channel 14"
+config UDD_PWM14
+  tristate "User Mode HT PWM Channel 14"
+	depends on HT_PWM14
+	select HT_PWM_UMODE
+
+config HT_PWM15
+	tristate "DRIMe4 HardWare Trigger PWM Channel 15"
+config UDD_PWM15
+  tristate "User Mode HT PWM Channel 15"
+	depends on HT_PWM15
+	select HT_PWM_UMODE
+
+config HT_PWM16
+	tristate "DRIMe4 HardWare Trigger PWM Channel 16"
+config UDD_PWM16
+  tristate "User Mode HT PWM Channel 16"
+	depends on HT_PWM16
+	select HT_PWM_UMODE
+
+config HT_PWM17
+	tristate "DRIMe4 HardWare Trigger PWM Channel 17"
+config UDD_PWM17
+  tristate "User Mode HT PWM Channel 17"
+	depends on HT_PWM17
+	select HT_PWM_UMODE
+endif
+
+config DRIME4_ADC
+        bool "ADC common driver support"
+
+config DRIME4_DEV_RMU
+        bool "DRIMe4 Reset Management Unit"
+
+config DRIME4_WDT
+	bool "DRIME4 Watchdog Timer support"
+
+config DRIME4_PMU
+	bool "DRIMe4 Power Management Unit"
+
+menuconfig UDD_GROUP
+        bool "DRIMe4 GPIO UDD Select "
+        select UGPIO_DD
+
+if UDD_GROUP
+config DRIME4_UGPIO0
+        bool "DRIME4 UGPIO G0"
+config DRIME4_UGPIO1
+        bool "DRIME4 UGPIO G1"
+config DRIME4_UGPIO2
+        bool "DRIME4 UGPIO G2"
+config DRIME4_UGPIO3
+        bool "DRIME4 UGPIO G3"
+config DRIME4_UGPIO4
+        bool "DRIME4 UGPIO G4"
+config DRIME4_UGPIO5
+        bool "DRIME4 UGPIO G5"
+config DRIME4_UGPIO6
+        bool "DRIME4 UGPIO G6"
+config DRIME4_UGPIO7
+        bool "DRIME4 UGPIO G7"
+config DRIME4_UGPIO8
+        bool "DRIME4 UGPIO G8"
+config DRIME4_UGPIO9
+        bool "DRIME4 UGPIO G9"
+config DRIME4_UGPIO10
+        bool "DRIME4 UGPIO G10"
+config DRIME4_UGPIO11
+        bool "DRIME4 UGPIO G11"
+config DRIME4_UGPIO12
+        bool "DRIME4 UGPIO G12"
+config DRIME4_UGPIO13
+        bool "DRIME4 UGPIO G13"
+config DRIME4_UGPIO14
+        bool "DRIME4 UGPIO G14"
+config DRIME4_UGPIO15
+        bool "DRIME4 UGPIO G15"
+config DRIME4_UGPIO16
+        bool "DRIME4 UGPIO G16"
+config DRIME4_UGPIO17
+        bool "DRIME4 UGPIO G17"
+config DRIME4_UGPIO18
+        bool "DRIME4 UGPIO G18"
+config DRIME4_UGPIO19
+        bool "DRIME4 UGPIO G19"
+config DRIME4_UGPIO20
+        bool "DRIME4 UGPIO G20"
+config DRIME4_UGPIO21
+        bool "DRIME4 UGPIO G21"
+config DRIME4_UGPIO22
+        bool "DRIME4 UGPIO G22"
+config DRIME4_UGPIO23
+        bool "DRIME4 UGPIO G23"
+config DRIME4_UGPIO24
+        bool "DRIME4 UGPIO G24"
+config DRIME4_UGPIO25
+        bool "DRIME4 UGPIO G25"
+config DRIME4_UGPIO26
+        bool "DRIME4 UGPIO G26"
+config DRIME4_UGPIO27
+        bool "DRIME4 UGPIO G27"
+
+endif
+
+menuconfig DRIME4_PTC
+        bool "DRIME4 PTC"
+if DRIME4_PTC
+config PTC_0
+        bool "DRIME4 PTC Channel 0"
+config PTC_1
+        bool "DRIME4 PTC Channel 1"
+endif
+
+config DRIME4_RTC
+        bool "DRIME4 RTC"
+
+config DRIME4_USB3_DRD
+	bool "USB3 DRD driver support"
+
+config DRIME4_EMMC
+	bool "eMMC driver support"
+
+config DRIME4_SDIO
+	bool "SDIO driver support"
+
+config DRIME4_ONDEMAND_DDRFREQ
+	bool "DRIME4_Dynamic DDR Clock change support"
+
+config DRIME4_WLAN
+	bool "Broadcomm WLAN Driver"
+	depends on DRIME4_SDIO
+
+config DRIME4_CONTINUE_AFTER_FAULT
+    bool "Enable Continue After Fault"
+    default n
+    help
+      Added by donghyeon.kim@samsung.com
+
+endif

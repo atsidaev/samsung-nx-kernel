@@ -1,0 +1,14 @@
+#
+# SPI driver configuration
+#
+# NOTE:  the reason this doesn't show SPI slave support is mostly that
+# nobody's needed a slave side API yet.  The master-role API is not
+# fully appropriate there, so it'd need some thought to do well.
+#
+#menuconfig PTC
+#	bool "DRIMe4 PTC "
+
+#if PTC
+config BRIDGE_DEV
+	bool "DRIMe4 Bridge IC device driver"
+#endif

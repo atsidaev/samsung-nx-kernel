@@ -46,6 +46,8 @@
 #define WM8994_NUM_DRC 3
 #define WM8994_NUM_EQ  3
 
+
+
 static struct {
 	unsigned int reg;
 	unsigned int mask;
@@ -1100,6 +1102,7 @@ static int aif1clk_ev(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, WM8994_CLOCKING_1,
 				    WM8994_SYSDSPCLK_ENA |
 				    WM8994_AIF1DSPCLK_ENA, val);
+
 		break;
 	}
 
@@ -2590,7 +2593,7 @@ static struct {
 };
 
 static int fs_ratios[] = {
-	64, 128, 192, 256, 348, 512, 768, 1024, 1408, 1536
+	64, 128, 192, 256, 384, 512, 768, 1024, 1408, 1536
 };
 
 static int bclk_divs[] = {
@@ -2650,6 +2653,7 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	bclk_rate = params_rate(params) * 2;
+	
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		bclk_rate *= 16;
@@ -2670,6 +2674,21 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	/* NX300 external mic patch */ 
+	if (params_rate(params) == 32000 && params_format(params) == SNDRV_PCM_FORMAT_S16_LE) {
+		/* playback should be always 16-bit */
+		if (dai->id == 1 && substream->stream == SNDRV_PCM_STREAM_PLAYBACK ) { 
+			bclk_rate *= 1;
+		}
+		/* capture using external mic should be done in 32-bit */
+		else
+		{
+			bclk_rate *= 2;
+			aif1 |= 0x60;
+		}
+	}
+
+	
 	/* Try to find an appropriate sample rate; look for an exact match. */
 	for (i = 0; i < ARRAY_SIZE(srs); i++)
 		if (srs[i].rate == params_rate(params))
@@ -2742,6 +2761,14 @@ static int wm8994_hw_params(struct snd_pcm_substream *substream,
 			    WM8994_AIF1CLK_RATE_MASK, rate_val);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+        /* Update mixer configurations */
+        snd_soc_update_bits(codec, WM8994_SPKOUT_MIXERS,
+                            (WM8994_SPKMIXL_TO_SPKOUTL_MASK | WM8994_SPKMIXR_TO_SPKOUTL_MASK),
+                            (WM8994_SPKMIXL_TO_SPKOUTL_MASK | WM8994_SPKMIXR_TO_SPKOUTL_MASK));
+
+        snd_soc_update_bits(codec, WM8994_SPKOUT_MIXERS,
+                            (WM8994_SPKMIXL_TO_SPKOUTR_MASK | WM8994_SPKMIXR_TO_SPKOUTR_MASK),
+                            0);
 		switch (dai->id) {
 		case 1:
 			wm8994->dac_rates[0] = params_rate(params);
@@ -2767,6 +2794,8 @@ static int wm8994_aif3_hw_params(struct snd_pcm_substream *substream,
 	struct wm8994 *control = wm8994->wm8994;
 	int aif1_reg;
 	int aif1 = 0;
+
+	snd_soc_write(codec, WM8994_POWER_MANAGEMENT_6, 0xa); //external mic setting
 
 	switch (dai->id) {
 	case 3:
@@ -2798,6 +2827,7 @@ static int wm8994_aif3_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+
 	return snd_soc_update_bits(codec, aif1_reg, WM8994_AIF1_WL_MASK, aif1);
 }
 
@@ -2824,6 +2854,23 @@ static int wm8994_aif_mute(struct snd_soc_dai *codec_dai, int mute)
 		reg = 0;
 
 	snd_soc_update_bits(codec, mute_reg, WM8994_AIF1DAC1_MUTE, reg);
+
+	/* set GPIO back for internal mic */
+	
+	if (codec_dai->id == 2 && mute == 1) {
+		snd_soc_write(codec, 0x700, 0x8101);  
+		snd_soc_write(codec, 0x702, 0x0100);
+		snd_soc_write(codec, 0x703, 0x0100);
+		snd_soc_write(codec, 0x704, 0x8100);
+		snd_soc_write(codec, 0x706, 0x0100);
+		snd_soc_write(codec, 0x707, 0x8100);
+		snd_soc_write(codec, 0x708, 0x0100);
+		snd_soc_write(codec, 0x709, 0xa101);
+		snd_soc_write(codec, 0x70a, 0xa101);
+
+		snd_soc_write(codec, WM8994_POWER_MANAGEMENT_6, 0x0);
+		
+	}
 
 	return 0;
 }
@@ -2857,7 +2904,8 @@ static int wm8994_set_tristate(struct snd_soc_dai *codec_dai, int tristate)
 static int wm8994_aif2_probe(struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec *codec = dai->codec;
-
+	
+#ifndef CONFIG_SND_SOC_D4_WM8994  //ohhan   
 	/* Disable the pulls on the AIF if we're using it to save power. */
 	snd_soc_update_bits(codec, WM8994_GPIO_3,
 			    WM8994_GPN_PU | WM8994_GPN_PD, 0);
@@ -2865,7 +2913,7 @@ static int wm8994_aif2_probe(struct snd_soc_dai *dai)
 			    WM8994_GPN_PU | WM8994_GPN_PD, 0);
 	snd_soc_update_bits(codec, WM8994_GPIO_5,
 			    WM8994_GPN_PU | WM8994_GPN_PD, 0);
-
+#endif
 	return 0;
 }
 
@@ -3225,6 +3273,7 @@ int wm8994_mic_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 	struct wm8994 *control = wm8994->wm8994;
 	int reg, ret;
 
+	
 	if (control->type != WM8994) {
 		dev_warn(codec->dev, "Not a WM8994\n");
 		return -EINVAL;
@@ -3279,7 +3328,8 @@ int wm8994_mic_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 }
 EXPORT_SYMBOL_GPL(wm8994_mic_detect);
 
-static void wm8994_mic_work(struct work_struct *work)
+#ifndef CONFIG_SND_SOC_D4_WM8994
+static irqreturn_t wm8994_mic_irq(int irq, void *data)
 {
 	struct wm8994_priv *priv = container_of(work,
 						struct wm8994_priv,
@@ -3353,6 +3403,7 @@ static irqreturn_t wm8994_mic_irq(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+#endif
 
 /* Default microphone detection handler for WM8958 - the user can
  * override this if they wish.
@@ -3625,6 +3676,7 @@ int wm8958_mic_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 }
 EXPORT_SYMBOL_GPL(wm8958_mic_detect);
 
+#ifndef CONFIG_SND_SOC_D4_WM8994
 static irqreturn_t wm8958_mic_irq(int irq, void *data)
 {
 	struct wm8994_priv *wm8994 = data;
@@ -3678,6 +3730,7 @@ static irqreturn_t wm8958_mic_irq(int irq, void *data)
 out:
 	return IRQ_HANDLED;
 }
+#endif
 
 static irqreturn_t wm8994_fifo_error(int irq, void *data)
 {
@@ -3717,13 +3770,15 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 	wm8994->codec = codec;
 	codec->control_data = control->regmap;
 
+
 	snd_soc_codec_set_cache_io(codec, 16, 16, SND_SOC_REGMAP);
 
 	wm8994->codec = codec;
 
 	mutex_init(&wm8994->accdet_lock);
+#ifndef CONFIG_SND_SOC_D4_WM8994 
 	INIT_DELAYED_WORK(&wm8994->mic_work, wm8994_mic_work);
-
+#endif
 	for (i = 0; i < ARRAY_SIZE(wm8994->fll_locked); i++)
 		init_completion(&wm8994->fll_locked[i]);
 
@@ -3815,7 +3870,7 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 				 &wm8994->hubs);
 	if (ret == 0)
 		wm8994->hubs.dcs_done_irq = true;
-
+#ifndef CONFIG_SND_SOC_D4_WM8994
 	switch (control->type) {
 	case WM8994:
 		if (wm8994->micdet_irq) {
@@ -3872,7 +3927,7 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 					 ret);
 		}
 	}
-
+#endif
 	switch (control->type) {
 	case WM1811:
 		if (wm8994->revision > 1) {
@@ -3948,6 +4003,7 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 			    1 << WM8994_AIF2DAC_3D_GAIN_SHIFT,
 			    1 << WM8994_AIF2DAC_3D_GAIN_SHIFT);
 
+#ifndef CONFIG_SND_SOC_D4_WM8994
 	/* Unconditionally enable AIF1 ADC TDM mode on chips which can
 	 * use this; it only affects behaviour on idle TDM clock
 	 * cycles. */
@@ -3960,7 +4016,7 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 	default:
 		break;
 	}
-
+#endif
 	/* Put MICBIAS into bypass mode by default on newer devices */
 	switch (control->type) {
 	case WM8958:
@@ -4082,6 +4138,10 @@ static int wm8994_codec_probe(struct snd_soc_codec *codec)
 		break;
 	}
 
+#ifdef CONFIG_SND_SOC_D4_WM8994
+	/* ohhan */
+	snd_soc_update_bits(codec, WM8994_GPIO_1, 0x1F, 0x01); 
+#endif
 	return 0;
 
 err_irq:

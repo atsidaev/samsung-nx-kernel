@@ -49,6 +49,13 @@
  *	During resume we pick up all swap_map_page structures into a list.
  */
 
+#ifdef CONFIG_SWSUSP_HEADER_IMAGE_TAIL
+long hib_image_tail;
+#endif
+
+unsigned long hib_snapshot_pages;
+unsigned long hib_cmp_snapshot_pages;
+
 #define MAP_PAGE_ENTRIES	(PAGE_SIZE / sizeof(sector_t) - 1)
 
 /*
@@ -93,9 +100,36 @@ struct swap_map_handle {
 	u32 crc32;
 };
 
+#ifdef CONFIG_SWSUSP_HEADER_IMAGE_TAIL
+#define IMAGE_TAIL_LEN (sizeof(long))
+#else
+#define IMAGE_TAIL_LEN (0)
+#endif
+#ifdef CONFIG_BOOTLOADER_SNAPSHOT
+#define SNAPSHOT_INFO_LEN (6 * sizeof(long))
+#else
+#define SNAPSHOT_INFO_LEN (0)
+#endif
+#define SNAPSHOT_SIZE_LEN   (sizeof(long) * 2)
 struct swsusp_header {
 	char reserved[PAGE_SIZE - 20 - sizeof(sector_t) - sizeof(int) -
-	              sizeof(u32)];
+	              IMAGE_TAIL_LEN - SNAPSHOT_INFO_LEN -
+	              sizeof(u32)- SNAPSHOT_SIZE_LEN];
+    unsigned long snapshot_pages;    /* plz update user app if this field changes */
+    unsigned long cmp_snapshot_pages;/* plz update user app if this field changes */
+#ifdef CONFIG_BOOTLOADER_SNAPSHOT
+	unsigned long ep0_trb_dma;
+	unsigned long ctrl_buff_dma;
+	unsigned long event_buff_dma;
+	unsigned long sdio_dma;
+	unsigned long sdmmc_dma;
+#endif
+#ifdef CONFIG_SWSUSP_HEADER_IMAGE_TAIL
+	long	image_tail;
+#endif
+#ifdef CONFIG_BOOTLOADER_SNAPSHOT
+	unsigned long resume;
+#endif
 	u32	crc32;
 	sector_t image;
 	unsigned int flags;	/* Flags to pass to the "boot" kernel */
@@ -217,6 +251,13 @@ struct block_device *hib_resume_bdev;
  * Saving part
  */
 
+#ifdef CONFIG_BOOTLOADER_SNAPSHOT
+extern unsigned long g_sdmmc_dma;
+extern unsigned long g_sdio_dma;
+extern unsigned long g_event_buff_dma;
+extern unsigned long g_ctrl_buff_dma;
+extern unsigned long g_ep0_trb_dma;
+#endif
 static int mark_swapfiles(struct swap_map_handle *handle, unsigned int flags)
 {
 	int error;
@@ -227,6 +268,22 @@ static int mark_swapfiles(struct swap_map_handle *handle, unsigned int flags)
 		memcpy(swsusp_header->orig_sig,swsusp_header->sig, 10);
 		memcpy(swsusp_header->sig, HIBERNATE_SIG, 10);
 		swsusp_header->image = handle->first_sector;
+
+		swsusp_header->snapshot_pages = hib_snapshot_pages;
+		swsusp_header->cmp_snapshot_pages = hib_cmp_snapshot_pages;
+
+#ifdef CONFIG_SWSUSP_HEADER_IMAGE_TAIL
+		swsusp_header->image_tail = hib_image_tail;
+		pr_info("swsusp_header->image_tail = %d \n", swsusp_header->image_tail);
+#endif
+#ifdef CONFIG_BOOTLOADER_SNAPSHOT
+		swsusp_header->resume = &swsusp_arch_resume + 0x44;
+		swsusp_header->sdmmc_dma = g_sdmmc_dma;
+		swsusp_header->sdio_dma = g_sdio_dma;
+		swsusp_header->event_buff_dma = g_event_buff_dma;
+		swsusp_header->ctrl_buff_dma = g_ctrl_buff_dma;
+		swsusp_header->ep0_trb_dma = g_ep0_trb_dma;
+#endif
 		swsusp_header->flags = flags;
 		if (flags & SF_CRC32_MODE)
 			swsusp_header->crc32 = handle->crc32;
@@ -338,6 +395,9 @@ static int get_swap_writer(struct swap_map_handle *handle)
 	handle->k = 0;
 	handle->reqd_free_pages = reqd_free_pages();
 	handle->first_sector = handle->cur_swap;
+#ifdef CONFIG_SWSUSP_HEADER_IMAGE_TAIL
+	hib_image_tail=0;
+#endif
 	return 0;
 err_rel:
 	release_swap_writer(handle);
@@ -401,6 +461,17 @@ static int swap_writer_finish(struct swap_map_handle *handle,
 		flush_swap_writer(handle);
 		printk(KERN_INFO "PM: S");
 		error = mark_swapfiles(handle, flags);
+#ifdef CONFIG_SCORE_FAST_BOOT
+		if (!error) {
+			if (IS_ERR(hib_resume_bdev)) {
+				pr_err("\nPM: Image device not initialised\n");
+				error = -ENODEV;
+			} else {
+				pr_info("PM: Flush MTD\n");
+				error = ioctl_by_bdev(hib_resume_bdev, BLKFLSBUF, 0);
+			}
+		}
+#endif
 		printk("|\n");
 	}
 
@@ -473,7 +544,10 @@ static int save_image(struct swap_map_handle *handle,
 	if (!ret)
 		ret = err2;
 	if (!ret)
+    {
 		printk(KERN_INFO "PM: Image saving done.\n");
+        hib_snapshot_pages = nr_to_write;
+    }
 	swsusp_show_speed(&start, &stop, nr_to_write, "Wrote");
 	return ret;
 }
@@ -564,7 +638,13 @@ static int lzo_compress_threadfn(void *data)
 	}
 	return 0;
 }
-
+#ifdef CONFIG_SCORE_SNAPSHOT_DEBUG
+void zram_mem_show(void);
+#endif
+#ifdef CONFIG_SCORE_TEST
+void start_enable_printk(void);
+void finish_enable_printk(void);
+#endif
 /**
  * save_image_lzo - Save the suspend image data compressed with LZO.
  * @handle: Swap mam handle to use for saving the image.
@@ -587,6 +667,7 @@ static int save_image_lzo(struct swap_map_handle *handle,
 	unsigned char *page = NULL;
 	struct cmp_data *data = NULL;
 	struct crc_data *crc = NULL;
+    size_t total=0;
 
 	/*
 	 * We'll limit the number of threads for compression to limit memory
@@ -750,6 +831,7 @@ static int save_image_lzo(struct swap_map_handle *handle,
 				ret = swap_write_page(handle, page, &bio);
 				if (ret)
 					goto out_finish;
+                total++;
 			}
 		}
 
@@ -763,8 +845,25 @@ out_finish:
 	if (!ret)
 		ret = err2;
 	if (!ret)
+    {
 		printk(KERN_INFO "PM: Image saving done.\n");
+        hib_snapshot_pages = nr_to_write;
+        hib_cmp_snapshot_pages = total;
+    }
 	swsusp_show_speed(&start, &stop, nr_to_write, "Wrote");
+#ifdef CONFIG_SCORE_TEST
+    start_enable_printk();
+#endif
+    printk(KERN_INFO "PM: %lu -> %lu kbytes, %d%% compressed\n",
+           nr_to_write * PAGE_SIZE / 1024,
+           total * PAGE_SIZE / 1024,
+           100 - ((total * 100) / nr_to_write));
+#ifdef CONFIG_SCORE_SNAPSHOT_DEBUG
+    zram_mem_show();
+#endif
+#ifdef CONFIG_SCORE_TEST
+    finish_enable_printk();
+#endif
 out_clean:
 	if (crc) {
 		if (crc->thr)
@@ -1437,8 +1536,10 @@ int swsusp_check(void)
 		if (!memcmp(HIBERNATE_SIG, swsusp_header->sig, 10)) {
 			memcpy(swsusp_header->sig, swsusp_header->orig_sig, 10);
 			/* Reset swap signature now */
+#ifndef CONFIG_SCORE_FAST_BOOT
 			error = hib_bio_write_page(swsusp_resume_block,
 						swsusp_header, NULL);
+#endif
 		} else {
 			error = -EINVAL;
 		}
@@ -1509,3 +1610,46 @@ static int swsusp_header_init(void)
 }
 
 core_initcall(swsusp_header_init);
+
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+int get_resume_device(void);
+void clear_snapshot(void)
+{
+    int ret = get_resume_device();
+
+    if (ret)
+        goto error;
+
+	hib_resume_bdev = blkdev_get_by_dev(swsusp_resume_device,
+					    FMODE_READ|FMODE_WRITE, NULL);
+	if (IS_ERR(hib_resume_bdev))
+        goto error;
+
+    set_blocksize(hib_resume_bdev, PAGE_SIZE);
+    swsusp_header_init();
+    clear_page(swsusp_header);
+    ret = hib_bio_read_page(swsusp_resume_block,
+                              swsusp_header, NULL);
+    if (ret)
+        goto error;
+
+    if (!memcmp(HIBERNATE_SIG,swsusp_header->sig, 10)) {
+        memcpy(swsusp_header->sig,swsusp_header->orig_sig, 10);
+        strncpy(swsusp_header->orig_sig,"CLEARED", 10);
+        ret = hib_bio_write_page(swsusp_resume_block,
+                                   swsusp_header, NULL);
+        if (ret)
+            goto error;
+    }
+    ret = ioctl_by_bdev(hib_resume_bdev, BLKFLSBUF, 0);
+    if (ret)
+        goto error;
+
+    blkdev_put(hib_resume_bdev, FMODE_READ|FMODE_WRITE);
+    return ;
+error:
+    printk(KERN_INFO "error while claer snapshot \n");
+    blkdev_put(hib_resume_bdev, FMODE_READ|FMODE_WRITE);
+    return ;
+}
+#endif

@@ -1,0 +1,9 @@
+#
+# D4 Driver Opener drivers configurations
+#
+
+config DRIME4_OPENER
+	tristate "Samsung DRIMe4 UDD Opener driver"
+	depends on PMU_SELECT
+	---help---
+	  This is a DRIMe4 UDD Opener driver for Samsung DRIMe4

@@ -59,6 +59,11 @@ struct sdio_func {
 	const char		**info;		/* info strings */
 
 	struct sdio_func_tuple *tuples;
+
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	int cutpower_setup;
+	int (*cutpower_setup_cb)(int on);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 };
 
 #define sdio_func_present(f)	((f)->state & SDIO_STATE_PRESENT)

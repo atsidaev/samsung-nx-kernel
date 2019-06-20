@@ -1,0 +1,57 @@
+#
+# Configuration for Multi Format Codecs (MFC)
+#
+
+config VIDEO_MFC5X
+	bool "Samsung MFC (Multi Format Codec - FIMV 5.x) Driver"
+	#depends on VIDEO_SAMSUNG && CPU_DRIME4
+	depends on CPU_DRIME4
+	default n
+	---help---
+	  This is a Samsung Multi Format Codecs (MFC) FIMV V5.x - driver for Samsung DRIME4
+
+config VIDEO_MFC_MAX_INSTANCE
+	int "Maximum size of MFC instance (1-4)"
+	range 1 4
+	depends on VIDEO_MFC5X
+	default 1
+
+config VIDEO_MFC_MEM_PORT_COUNT
+	int "Default number of MFC memory ports (1-2)"
+	range 1 2
+	depends on VIDEO_MFC5X
+	default 2
+
+config VIDEO_MFC_VCM_UMP
+	bool "Support UMP over VCM for MFC"
+	depends on VIDEO_MFC5X && VCM_MMU && VCM_VMM && VIDEO_UMP
+	default y
+
+config VIDEO_MFC5X_DEBUG
+	bool "MFC driver debug message"
+	depends on VIDEO_MFC5X
+	default n
+
+config VIDEO_MFC5X_MEASURE_CODING_TIME
+	bool "MFC driver debug (timing) message"
+	depends on VIDEO_MFC5X
+	default n
+	---help---
+	   Compile a set of codes that measure the duration from "command start" to "irq occurrence"
+
+
+comment "Reserved memory configurations"
+config VIDEO_SAMSUNG_MEMSIZE_MFC
+	int "Memory size in kbytes for MFC"
+	depends on ((VIDEO_MFC5X) && (VIDEO_MFC_MEM_PORT_COUNT = 1))
+	default "65536"
+
+config VIDEO_SAMSUNG_MEMSIZE_MFC0
+	int "Memory size in kbytes for MFC port0"
+	depends on ((VIDEO_MFC5X) && (!VIDEO_MFC_MEM_PORT_COUNT = 1))
+	default "32768"
+
+config VIDEO_SAMSUNG_MEMSIZE_MFC1
+	int "Memory size in kbytes for MFC port1"
+	depends on ((VIDEO_MFC5X) && (!VIDEO_MFC_MEM_PORT_COUNT = 1))
+	default "32768"

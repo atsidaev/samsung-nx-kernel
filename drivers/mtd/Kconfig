@@ -12,6 +12,12 @@ menuconfig MTD
 
 if MTD
 
+config MTD_DEBUG
+	bool "Debugging"
+	help
+	  This turns on low-level debugging for the entire MTD sub-system.
+	  Normally, you should say 'N'.
+
 config MTD_TESTS
 	tristate "MTD tests support (DANGEROUS)"
 	depends on m

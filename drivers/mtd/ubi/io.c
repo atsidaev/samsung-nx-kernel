@@ -210,6 +210,9 @@ retry:
 			dbg_gen("bit-flip (emulated)");
 			err = UBI_IO_BITFLIPS;
 		}
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+        score_dbg_info_add(read, 0);
+#endif
 	}
 
 	return err;

@@ -1,0 +1,15 @@
+#
+# PMU driver configuration
+#
+# NOTE:  the reason this doesn't show SPI slave support is mostly that
+# nobody's needed a slave side API yet.  The master-role API is not
+# fully appropriate there, so it'd need some thought to do well.
+#
+menuconfig PMU
+        bool "DRIMe4 Power Management"
+
+if PMU
+config PMU_SELECT
+	bool "DRIMe4 ISP Power Management Select"
+#	select DRIME4_OPENER
+endif

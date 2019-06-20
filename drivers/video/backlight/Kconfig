@@ -125,6 +125,30 @@ config LCD_AMS369FG06
 	  If you have an AMS369FG06 AMOLED Panel, say Y to enable its
 	  LCD control driver.
 
+config LCD_CH2330
+	tristate "CH2330 AMOLED LCD Driver"
+	depends on MACH_D4_NX300
+	default y	
+	help
+	  If you have an CH2330 LCD Panel, say Y to enable its
+	  LCD control driver.
+	  
+config LCD_A030VVN01_3
+	tristate "A030VVN01.3 LCD Driver"
+	depends on MACH_D4_NX300
+	default y	
+	help
+	  If you have an A030VVN01.3 LCD Panel, say Y to enable its
+	  LCD control driver.
+
+config LCD_SMD_WVGA_AMOLED
+	tristate "SMD WVGA AMOLED LCD Driver"
+	depends on MACH_D4_NX300
+	default y	
+	help
+	  If you have an SMD WVGA AMOLED LCD Panel, say Y to enable its
+	  LCD control driver.
+
 endif # LCD_CLASS_DEVICE
 
 #

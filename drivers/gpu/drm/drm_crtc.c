@@ -2179,6 +2179,7 @@ static int format_check(const struct drm_mode_fb_cmd2 *r)
 	case DRM_FORMAT_YVU422:
 	case DRM_FORMAT_YUV444:
 	case DRM_FORMAT_YVU444:
+	case DRM_FORMAT_YYCC:
 		return 0;
 	default:
 		return -EINVAL;
@@ -3703,6 +3704,8 @@ EXPORT_SYMBOL(drm_fb_get_bpp_depth);
 int drm_format_num_planes(uint32_t format)
 {
 	switch (format) {
+	case DRM_FORMAT_YYCC:
+		return 4;
 	case DRM_FORMAT_YUV410:
 	case DRM_FORMAT_YVU410:
 	case DRM_FORMAT_YUV411:
@@ -3747,6 +3750,7 @@ int drm_format_plane_cpp(uint32_t format, int plane)
 	case DRM_FORMAT_UYVY:
 	case DRM_FORMAT_VYUY:
 		return 2;
+	case DRM_FORMAT_YYCC:
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
 	case DRM_FORMAT_NV16:
@@ -3786,6 +3790,7 @@ int drm_format_horz_chroma_subsampling(uint32_t format)
 	case DRM_FORMAT_YUV410:
 	case DRM_FORMAT_YVU410:
 		return 4;
+	case DRM_FORMAT_YYCC:
 	case DRM_FORMAT_YUYV:
 	case DRM_FORMAT_YVYU:
 	case DRM_FORMAT_UYVY:
@@ -3819,6 +3824,7 @@ int drm_format_vert_chroma_subsampling(uint32_t format)
 	case DRM_FORMAT_YUV410:
 	case DRM_FORMAT_YVU410:
 		return 4;
+	case DRM_FORMAT_YYCC:
 	case DRM_FORMAT_YUV420:
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_NV12:

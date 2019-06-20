@@ -26,6 +26,8 @@
 #include <asm/system_info.h>
 #include <asm/tlbflush.h>
 
+#include <linux/delay.h>
+
 #include "fault.h"
 
 #ifdef CONFIG_MMU
@@ -125,6 +127,8 @@ void show_pte(struct mm_struct *mm, unsigned long addr)
 { }
 #endif					/* CONFIG_MMU */
 
+extern void uart_save_log_to_card(int saveType , char * func);
+
 /*
  * Oops.  The kernel tried to access some page that wasn't present.
  */
@@ -150,7 +154,153 @@ __do_kernel_fault(struct mm_struct *mm, unsigned long addr, unsigned int fsr,
 	show_pte(mm, addr);
 	die("Oops", regs, fsr);
 	bust_spinlocks(0);
+	//save hang log file.
+	uart_save_log_to_card(1,__FUNCTION__);
+#ifndef CONFIG_DRIME4_CONTINUE_AFTER_FAULT //donghyeon.kim (2013-01-23 21:32:07)    
+	while(1)
+	{
+		msleep(1000);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */    
 	do_exit(SIGKILL);
+}
+
+#include <linux/ptrace.h>
+
+char __file_path_buf[256];
+void __print_path(const struct path *path)
+{
+	char *p = d_path(path, __file_path_buf, 256);
+
+	if (!IS_ERR(p))
+		printk("%s", p);
+	else
+		printk("(path error:%d)",(int)p);
+	
+	return;
+}
+
+struct vm_area_struct *__find_vma_inside(struct mm_struct *mm, unsigned long addr)
+{
+	struct vm_area_struct *vma = NULL;
+
+	vma = find_vma(mm, addr);
+	if (vma && (addr < vma->vm_start))
+		vma = NULL;
+
+	return vma;
+}
+
+/* check if an instruction located by addr is BL(or BLX with register) instruction.
+   This assumes the instruction set is ARM instruction(not Thumb)
+   CPU architecture version : ARMv7.
+*/
+int
+__is_subroutine_call(unsigned int addr)
+{	
+	if ((*((unsigned int*)addr) & 0x0b000000) == 0x0b000000)
+		return 1;
+
+	if ((*((unsigned int*)addr) & 0x012fff30) == 0x012fff30)
+		return 1;
+	
+	return 0;
+}
+
+int
+__check_ret_addr(struct mm_struct *mm, unsigned int addr)
+{
+	struct vm_area_struct *vma, *prev_instr_vma;
+
+	vma = __find_vma_inside(mm, addr);
+	if (!vma)
+		return 0;
+
+	if (!(vma->vm_flags & VM_EXEC))
+		return 0;
+
+	/*  check the vaildity of the previous instruction of the instruction located by addr 
+	    the previous instruction should be on exec memory area and subroutine call instruction. */
+	if ((prev_instr_vma = __find_vma_inside(mm, addr-4)) != NULL) {
+		if (prev_instr_vma->vm_flags & VM_EXEC) {
+			if (!__is_subroutine_call(addr-4))
+				return 0;
+		}
+		else {
+			return 0;
+		}
+	}
+	else {
+		return 0;
+	}
+
+	return 1;
+}
+
+void
+__print_code_addr(struct task_struct *task, struct mm_struct *mm, unsigned int addr)
+{
+	struct vm_area_struct *vma;
+	struct file *file;
+	const char *name = NULL;
+	int is_pid = 1;
+
+	vma = __find_vma_inside(mm, addr);
+	if (!vma) {
+		printk("Error : no vma for address %x\n",addr);
+		return;
+	}
+
+	printk("%08x ", (unsigned int)(addr-vma->vm_start));
+	file = vma->vm_file;
+	if (file)
+		__print_path(&file->f_path);
+	else
+		printk("[unkown]");
+	printk("\n");
+
+	return;
+}
+
+void __dump_user_backtrace(struct task_struct *task)
+{
+	struct mm_struct *mm;
+	struct vm_area_struct *stack_vma;
+	struct pt_regs *regs;
+	unsigned long addr;
+		
+	get_task_struct(task);
+	regs = task_pt_regs(task);
+	mm = mm_access(task, PTRACE_MODE_READ);
+	if (!mm || IS_ERR(mm)) {
+		printk("Error : in mm_access()\n");
+		put_task_struct(task);
+		return;
+	}
+	down_read(&mm->mmap_sem);
+
+	stack_vma = __find_vma_inside(mm, regs->ARM_sp);
+	if (!stack_vma) {
+		printk("Error : no stack vma(SP=%x)\n", (unsigned int)(regs->ARM_sp));
+		goto out;
+	}
+
+	printk("User stack area: 0x%08x-0x%08x\n", (unsigned int)(stack_vma->vm_start), (unsigned int)(stack_vma->vm_end));
+	printk("User call stack:\n");
+
+	__print_code_addr(task, mm, regs->ARM_pc);
+	for (addr = regs->ARM_sp; addr < stack_vma->vm_end; addr += 4) {
+		if (__check_ret_addr(mm, *((unsigned int*)addr))) {
+			__print_code_addr(task, mm, *((unsigned int*)addr));
+		}
+	}
+
+out:
+	up_read(&mm->mmap_sem);
+	mmput(mm);
+	put_task_struct(task);
+
+	return;
 }
 
 /*
@@ -163,6 +313,7 @@ __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		struct pt_regs *regs)
 {
 	struct siginfo si;
+	int saved_console_loglevel;
 
 #ifdef CONFIG_DEBUG_USER
 	if (((user_debug & UDBG_SEGV) && (sig == SIGSEGV)) ||
@@ -173,6 +324,32 @@ __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		show_regs(regs);
 	}
 #endif
+
+	/* Make console verbose. */
+	saved_console_loglevel = console_loglevel;
+	console_loglevel = 7;
+
+	/* same as above. (CONFIG_DEBUG_USER) */
+	printk(KERN_DEBUG "%s: unhandled page fault (%d) at 0x%08lx, code 0x%03x\n",
+			tsk->comm, sig, addr, fsr);
+	show_pte(tsk->mm, addr);
+	show_regs(regs);
+
+	/* Additional. */
+	__dump_user_backtrace(current);
+
+	/* Restore console. */
+	console_loglevel = saved_console_loglevel;
+
+	printk(KERN_DEBUG "__do_user_fault\n");
+	//save hang log file.
+	uart_save_log_to_card(1,__FUNCTION__);
+#ifndef CONFIG_DRIME4_CONTINUE_AFTER_FAULT //donghyeon.kim (2013-01-23 21:32:07)    
+	while(1)
+	{
+		msleep(1000);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	tsk->thread.address = addr;
 	tsk->thread.error_code = fsr;

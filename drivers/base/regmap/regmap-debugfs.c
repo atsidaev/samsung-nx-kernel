@@ -126,7 +126,7 @@ out:
 	return ret;
 }
 
-#undef REGMAP_ALLOW_WRITE_DEBUGFS
+#define REGMAP_ALLOW_WRITE_DEBUGFS
 #ifdef REGMAP_ALLOW_WRITE_DEBUGFS
 /*
  * This can be dangerous especially when we have clients such as
@@ -159,6 +159,8 @@ static ssize_t regmap_map_write_file(struct file *file,
 
 	/* Userspace has been fiddling around behind the kernel's back */
 	add_taint(TAINT_USER);
+
+	printk("remap_map_wirte_file: reg=%x, value=%x \n", reg, value); /* Han Oh */
 
 	regmap_write(map, reg, value);
 	return buf_size;

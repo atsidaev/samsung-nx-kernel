@@ -404,4 +404,9 @@ static int __init blk_ioc_init(void)
 			sizeof(struct io_context), 0, SLAB_PANIC, NULL);
 	return 0;
 }
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(blk_ioc_init);
+#else
+fast_subsys_initcall(blk_ioc_init);
+#endif
+

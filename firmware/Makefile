@@ -138,6 +138,15 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
 fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
+fw-shipped-$(CONFIG_VIDEO_MFC5X) += mfd_vo_130329.bin
+fw-shipped-$(CONFIG_WLAN) += ath6k/AR6003/hw2.1.1/athtcmd_ram.bin
+ifdef CONFIG_MACH_D4_NX300
+fw-shipped-$(CONFIG_WLAN) += ath6k/AR6003/hw2.1.1/bdata-nx300.bin
+endif
+ifdef CONFIG_MACH_D4_NX2000
+fw-shipped-$(CONFIG_WLAN) += ath6k/AR6003/hw2.1.1/bdata-nx2000.bin
+endif
+fw-shipped-$(CONFIG_WLAN) += ath6k/AR6003/hw2.1.1/fw-3.bin
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 

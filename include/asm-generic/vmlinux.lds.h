@@ -628,6 +628,11 @@
 		INIT_CALLS_LEVEL(1)					\
 		INIT_CALLS_LEVEL(2)					\
 		INIT_CALLS_LEVEL(3)					\
+		*(.initcallfast_subsys.init)				\
+		*(.initcallfast_fs.init)				\
+		*(.initcallfast_dev.init)				\
+		*(.initcallfast_late.init)				\
+		*(.initcallresume.init)					\
 		INIT_CALLS_LEVEL(4)					\
 		INIT_CALLS_LEVEL(5)					\
 		INIT_CALLS_LEVEL(rootfs)				\

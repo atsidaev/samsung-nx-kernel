@@ -1,0 +1,63 @@
+#
+# D4 Video drivers configurations
+#
+
+config VIDEO_SAMSUNG
+	bool "Samsung Multimedia Devices"
+	#depends on VIDEO_CAPTURE_DRIVERS && VIDEO_V4L2
+	select VIDEO_FIXED_MINOR_RANGES
+	default n
+	help
+	  This is a representative video4linux configuration for Samsung multimedia devices.
+
+menu "DRIMe4 video device drivers"
+
+source "drivers/media/video/drime4/bma/Kconfig"
+source "drivers/media/video/drime4/sma/Kconfig"
+source "drivers/media/video/drime4/pp/Kconfig"
+source "drivers/media/video/drime4/mipi/Kconfig"
+source "drivers/media/video/drime4/ipcm/Kconfig"
+source "drivers/media/video/drime4/ipcs/Kconfig"
+source "drivers/media/video/drime4/ep/Kconfig"
+#source "drivers/media/video/drime4/opener/Kconfig"
+source "drivers/media/video/drime4/be/Kconfig"
+source "drivers/media/video/drime4/bwm/Kconfig"
+source "drivers/media/video/drime4/srp/Kconfig"
+source "drivers/media/video/drime4/jpeg/Kconfig"
+source "drivers/media/video/drime4/jxr/Kconfig"
+source "drivers/media/video/drime4/mfc5x/Kconfig"
+source "drivers/media/video/drime4/csm/Kconfig"
+
+endmenu
+
+config VIDEO_MISC_DEVICE
+	bool "Samsung video misc devices"
+	depends on CPU_DRIME4
+	default n
+	---help---
+
+if VIDEO_MISC_DEVICE
+config S5P_DEV_MFC
+	bool "s5p_dev_mfc"
+	depends on ARCH_DRIME4 || VIDEO_MISC_DEVICE
+	help
+	  Compile in platform device definitions for MFC
+config ANON_ALLOCATOR
+	bool "anon allocator"
+	depends on ARCH_DRIME4 || VIDEO_MISC_DEVICE
+	help
+	  This is a driver for allocating buffers
+endif #VIDEO_MISC_DEVICE
+
+
+choice
+	prompt "Fixed Memory Support"
+	default DRIME4_MEM_CMA if (ARCH_DRIME4)
+config DRIME4_MEM_CMA
+        bool "Fixed memory through CMA"
+	depends on ARCH_DRIME4
+	select CMA
+        help
+          Use CMA(Contiguous memory allocator) to reserve machine specific memory.
+
+endchoice

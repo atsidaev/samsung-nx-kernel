@@ -1,0 +1,11 @@
+#
+# Reset Management Unit driver configuration
+#
+# NOTE:  the reason this doesn't show SPI slave support is mostly that
+# nobody's needed a slave side API yet.  The master-role API is not
+# fully appropriate there, so it'd need some thought to do well.
+#
+
+config RMU_DEV
+	bool "DRIMe4 Reset Management Unit device driver"
+

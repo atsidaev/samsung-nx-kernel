@@ -1740,11 +1740,11 @@ static int soc_probe(struct platform_device *pdev)
 	 */
 	if (!card)
 		return -EINVAL;
-
+#ifndef CONFIG_SND_SOC_D4_WM8994
 	dev_warn(&pdev->dev,
 		 "ASoC machine %s should use snd_soc_register_card()\n",
 		 card->name);
-
+#endif
 	/* Bodge while we unpick instantiation */
 	card->dev = &pdev->dev;
 

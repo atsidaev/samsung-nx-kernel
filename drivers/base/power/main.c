@@ -31,6 +31,7 @@
 #include <linux/cpuidle.h>
 #include "../base.h"
 #include "power.h"
+#include <mach/version_information.h>
 
 typedef int (*pm_callback_t)(struct device *);
 
@@ -670,6 +671,7 @@ void dpm_resume(pm_message_t state)
 {
 	struct device *dev;
 	ktime_t starttime = ktime_get();
+	u32 prev, curr;
 
 	might_sleep();
 
@@ -693,6 +695,9 @@ void dpm_resume(pm_message_t state)
 
 			mutex_unlock(&dpm_list_mtx);
 
+			prev = (u32)jiffies;
+			SW_DBG_P1_HIGH();
+
 			error = device_resume(dev, state, false);
 			if (error) {
 				suspend_stats.failed_resume++;
@@ -700,6 +705,11 @@ void dpm_resume(pm_message_t state)
 				dpm_save_failed_dev(dev_name(dev));
 				pm_dev_err(dev, state, "", error);
 			}
+
+			SW_DBG_P1_LOW();
+			curr = (u32)jiffies;
+			if (curr - prev > 1)
+				printk(KERN_ERR "\033[31m[Device Resume Time(%s)] : %d ticks, %d ms\033[m\n",	dev_name(dev), curr - prev, (curr - prev) * 5);
 
 			mutex_lock(&dpm_list_mtx);
 		}

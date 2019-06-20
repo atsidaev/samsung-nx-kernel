@@ -19,11 +19,17 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 
+#ifdef CONFIG_MMC_DW_SYSFS
+#include <mach/dw_mmc_sysfs.h>
+#endif
+
 #include "core.h"
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd.h"
 #include "sd_ops.h"
+
+#include <linux/mmc/debug_msg.h>
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -244,7 +250,7 @@ static int mmc_read_ssr(struct mmc_card *card)
 	 * bitfield positions accordingly.
 	 */
 	au = UNSTUFF_BITS(ssr, 428 - 384, 4);
-	if (au > 0 && au <= 9) {
+	if (au > 0 && au <= 0xF) {
 		card->ssr.au = 1 << (au + 4);
 		es = UNSTUFF_BITS(ssr, 408 - 384, 16);
 		et = UNSTUFF_BITS(ssr, 402 - 384, 6);
@@ -884,6 +890,11 @@ void mmc_sd_go_highspeed(struct mmc_card *card)
 	mmc_set_timing(card->host, MMC_TIMING_SD_HS);
 }
 
+void mmc_sd_go_normalspeed(struct mmc_card *card)
+{
+	mmc_set_timing(card->host, MMC_TIMING_SD_NORMAL);
+}
+
 /*
  * Handle the detection and initialisation of a card.
  *
@@ -901,13 +912,24 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
+#ifdef CONFIG_MMC_DW_SYSFS
+	//g_support_card = 0;
+	g_media_err = 0;
+#endif
+
+	/* The initialization should be done at 3.3 V I/O voltage. */
+	mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_330, 0);
+
 	err = mmc_sd_get_cid(host, ocr, cid, &rocr);
 	if (err)
-		return err;
+		goto err_exit;
 
 	if (oldcard) {
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0)
-			return -ENOENT;
+		{
+			err = -ENOENT;
+			goto err_exit;
+		}
 
 		card = oldcard;
 	} else {
@@ -916,7 +938,10 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		 */
 		card = mmc_alloc_card(host, &sd_type);
 		if (IS_ERR(card))
-			return PTR_ERR(card);
+			{
+				err = PTR_ERR(card);
+				goto err_exit;
+			}
 
 		card->type = MMC_TYPE_SD;
 		memcpy(card->raw_cid, cid, sizeof(card->raw_cid));
@@ -928,13 +953,13 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_send_relative_addr(host, &card->rca);
 		if (err)
-			return err;
+			goto err_exit;
 	}
 
 	if (!oldcard) {
 		err = mmc_sd_get_csd(host, card);
 		if (err)
-			return err;
+			goto err_exit;
 
 		mmc_decode_cid(card);
 	}
@@ -945,7 +970,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_select_card(card);
 		if (err)
-			return err;
+			goto err_exit;
 	}
 
 	err = mmc_sd_setup_card(host, card, oldcard != NULL);
@@ -961,6 +986,8 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		/* Card is an ultra-high-speed card */
 		mmc_card_set_uhs(card);
 
+		host->card = card;
+
 		/*
 		 * Since initialization is now complete, enable preset
 		 * value registers for UHS-I cards.
@@ -975,10 +1002,14 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		 * Attempt to change to high-speed (if supported)
 		 */
 		err = mmc_sd_switch_hs(card);
+
 		if (err > 0)
 			mmc_sd_go_highspeed(card);
-		else if (err)
-			goto free_card;
+		else 
+			if (err)
+				goto free_card;
+			else
+				mmc_sd_go_normalspeed(card);
 
 		/*
 		 * Set bus speed.
@@ -998,12 +1029,24 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 
+	// Nandan: Adding delay to support the specific manufacturer type ( Qumo )
+	if(card->cid.manfid == 0x1D)
+		mdelay(500);
+
 	host->card = card;
+	//g_support_card = 1;
 	return 0;
 
 free_card:
+
 	if (!oldcard)
 		mmc_remove_card(card);
+
+err_exit:
+
+#ifdef CONFIG_MMC_DW_SYSFS
+	//g_support_card = 1;
+#endif
 
 	return err;
 }

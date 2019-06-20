@@ -1,0 +1,10 @@
+#
+# DSC DRIMe4 IPCS drivers configurations
+#
+
+config DRIME4_IPCS
+	tristate "Samsung DRIMe4 IPCS driver"
+	depends on VIDEO_DEV && ARCH_DRIME4
+
+	---help---
+		This is IPCS device driver for Samsung Drime IV using ioctl

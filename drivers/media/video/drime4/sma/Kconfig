@@ -1,0 +1,8 @@
+#
+# D4 SMA drivers configurations
+#
+
+config DRIME4_SMA
+	tristate "Samsung DRIMe4 SMA driver"
+	---help---
+	  This is a SMA driver for Samsung DRIMe4

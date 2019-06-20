@@ -1,0 +1,9 @@
+#
+# Lens communication driver configuration
+#
+config NXLENS_COMM_MAN
+	bool "Nx series lens SPI communication manager driver"
+	depends on NXLENS
+	default n
+	help
+	  This driver is SPI communication manager for NX series lens.

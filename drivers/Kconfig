@@ -50,6 +50,13 @@ source "drivers/i2c/Kconfig"
 
 source "drivers/spi/Kconfig"
 
+source "drivers/pwm/Kconfig"
+
+source "drivers/ptc/Kconfig"
+source "drivers/rmu/Kconfig"
+
+source "drivers/pmu/Kconfig"
+
 source "drivers/hsi/Kconfig"
 
 source "drivers/pps/Kconfig"
@@ -59,6 +66,10 @@ source "drivers/ptp/Kconfig"
 source "drivers/pinctrl/Kconfig"
 
 source "drivers/gpio/Kconfig"
+
+source "drivers/mbic/Kconfig"
+
+source "drivers/instr/Kconfig"
 
 source "drivers/w1/Kconfig"
 
@@ -81,6 +92,8 @@ source "drivers/regulator/Kconfig"
 source "drivers/media/Kconfig"
 
 source "drivers/video/Kconfig"
+
+source "drivers/gpu/Kconfig"
 
 source "sound/Kconfig"
 
@@ -147,5 +160,7 @@ source "drivers/memory/Kconfig"
 source "drivers/iio/Kconfig"
 
 source "drivers/vme/Kconfig"
+
+source "drivers/fbdbg/Kconfig"
 
 endmenu

@@ -917,7 +917,11 @@ static int __init genhd_device_init(void)
 	return 0;
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(genhd_device_init);
+#else
+fast_subsys_initcall(genhd_device_init);
+#endif
 
 static ssize_t disk_range_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)

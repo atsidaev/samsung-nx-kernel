@@ -526,8 +526,29 @@ config MMC_DW_IDMAC
 	  Designware Mobile Storage IP block. This disables the external DMA
 	  interface.
 
-config MMC_DW_PLTFM
-	tristate "Synopsys Designware MCI Support as platform device"
+config MMC_DW_SYSFS
+	bool "Synopsys DesignWare Controller SYSFS interface"
+	depends on MMC_DW
+	help
+	  This selects support to create sysfs that notifies the Synopsys
+	  DesignWare Mobile Storage IP's status
+
+config MMC_DW_SDCARD_PLTFM
+	tristate "Synopsys Designware MCI Support as platform device for sdcard"
+	depends on MMC_DW
+	default y
+	help
+	  This selects the common helper functions support for Host Controller
+	  Interface based platform driver. Please select this option if the IP
+	  is present as a platform device. This is the common interface for the
+	  Synopsys Designware IP.
+
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say Y.
+
+config MMC_DW_SDIO_PLTFM
+	tristate "Synopsys Designware MCI Support as platform device for sdio"
 	depends on MMC_DW
 	default y
 	help

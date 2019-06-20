@@ -640,7 +640,11 @@ static int __init amba_clcdfb_init(void)
 	return amba_driver_register(&clcd_driver);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 module_init(amba_clcdfb_init);
+#else
+fast_dev_initcall(amba_clcdfb_init);
+#endif
 
 static void __exit amba_clcdfb_exit(void)
 {

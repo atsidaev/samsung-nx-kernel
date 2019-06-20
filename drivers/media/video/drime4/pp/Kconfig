@@ -1,0 +1,8 @@
+#
+# D4 PP drivers configurations
+#
+
+source "drivers/media/video/drime4/pp/pp_ssif/Kconfig"
+source "drivers/media/video/drime4/pp/pp_core/Kconfig"
+source "drivers/media/video/drime4/pp/pp_3a/Kconfig"
+#source "drivers/media/video/drime4/pp/pp_capture_fw/Kconfig"

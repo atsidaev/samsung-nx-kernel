@@ -1,0 +1,19 @@
+#
+# SPI driver configuration
+#
+# NOTE:  the reason this doesn't show SPI slave support is mostly that
+# nobody's needed a slave side API yet.  The master-role API is not
+# fully appropriate there, so it'd need some thought to do well.
+#
+menuconfig HT_PWM
+        bool "DRIMe4 HT_PWM "
+
+if HT_PWM
+config HT_PWM_CTRL
+        bool "DRIMe4 Hardware Trigger PWM device driver"
+config HT_PWM_UMODE
+        bool "User Mode DRIMe4 Hardware Trigger PWM Support"
+				 select HT_PWM_CTRL
+endif
+
+

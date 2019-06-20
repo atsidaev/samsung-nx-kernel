@@ -904,6 +904,25 @@ config ARCH_EXYNOS
 	help
 	  Support for SAMSUNG's EXYNOS SoCs (EXYNOS4/5)
 
+config ARCH_DRIME4
+	bool "SAMSUNG DRIMeIV"
+	select CPU_V7
+	select ARM_VIC
+	select ARM_AMBA
+	select MIGHT_HAVE_CACHE_L2X0
+	select CACHE_L2X0
+	select GENERIC_GPIO
+	select ARCH_REQUIRE_GPIOLIB
+	select GPIO_PL061
+	select NEED_MACH_MEMORY_H
+	select CLKDEV_LOOKUP
+	select GENERIC_CLOCKEVENTS
+	select CLKSRC_MMIO
+	select PL330
+	select PINCTRL
+	help
+	  Support for Samsung DRIMeIV platform.
+
 config ARCH_SHARK
 	bool "Shark"
 	select CPU_SA110
@@ -1117,6 +1136,8 @@ source "arch/arm/mach-s5pc100/Kconfig"
 source "arch/arm/mach-s5pv210/Kconfig"
 
 source "arch/arm/mach-exynos/Kconfig"
+
+source "arch/arm/mach-drime4/Kconfig"
 
 source "arch/arm/mach-shmobile/Kconfig"
 
@@ -1635,7 +1656,7 @@ source kernel/Kconfig.preempt
 config HZ
 	int
 	default 200 if ARCH_EBSA110 || ARCH_S3C24XX || ARCH_S5P64X0 || \
-		ARCH_S5PV210 || ARCH_EXYNOS4
+		ARCH_S5PV210 || ARCH_EXYNOS4 || ARCH_DRIME4
 	default OMAP_32K_TIMER_HZ if ARCH_OMAP && OMAP_32K_TIMER
 	default AT91_TIMER_HZ if ARCH_AT91
 	default SHMOBILE_TIMER_HZ if ARCH_SHMOBILE
@@ -2297,6 +2318,12 @@ config ARCH_SUSPEND_POSSIBLE
 	depends on !ARCH_S5PC100 && !ARCH_TEGRA
 	depends on CPU_ARM920T || CPU_ARM926T || CPU_SA1100 || \
 		CPU_V6 || CPU_V6K || CPU_V7 || CPU_XSC3 || CPU_XSCALE || CPU_MOHAWK
+	def_bool y
+
+config ARCH_HIBERNATION_POSSIBLE
+	depends on ARCH_DRIME4
+	depends on CPU_ARM920T || CPU_ARM926T || CPU_SA1100 || \
+		CPU_V6 || CPU_V6K || CPU_V7 || CPU_XSC3 || CPU_XSCALE
 	def_bool y
 
 config ARM_CPU_SUSPEND

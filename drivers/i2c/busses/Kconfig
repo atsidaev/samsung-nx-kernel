@@ -592,6 +592,13 @@ config I2C_S3C2410
 	  Say Y here to include support for I2C controller in the
 	  Samsung SoCs.
 
+config I2C_DRIME4
+	tristate "DRIME4 I2C support"
+	depends on ARCH_DRIME4
+	help
+	  This driver supports for I2C controller on the
+	  Samsung DRIMeIV. 
+
 config I2C_S6000
 	tristate "S6000 I2C support"
 	depends on XTENSA_VARIANT_S6000

@@ -145,7 +145,47 @@
 
 #endif /* DUMP_MSGS */
 
+
+
+
+
 /*-------------------------------------------------------------------------*/
+
+/* Bulk-only data structures */
+
+/* Command Block Wrapper */
+struct fsg_bulk_cb_wrap {
+	__le32	Signature;		/* Contains 'USBC' */
+	u32	Tag;			/* Unique per command id */
+	__le32	DataTransferLength;	/* Size of the data */
+	u8	Flags;			/* Direction in bit 7 */
+	u8	Lun;			/* LUN (normally 0) */
+	u8	Length;			/* Of the CDB, <= MAX_COMMAND_SIZE */
+	u8	CDB[16];		/* Command Data Block */
+};
+
+#define USB_BULK_CB_WRAP_LEN	31
+#define USB_BULK_CB_SIG		0x43425355	/* Spells out USBC */
+#define USB_BULK_IN_FLAG	0x80
+
+/* Command Status Wrapper */
+struct bulk_cs_wrap {
+	__le32	Signature;		/* Should = 'USBS' */
+	u32	Tag;			/* Same as original command */
+	__le32	Residue;		/* Amount not transferred */
+	u8	Status;			/* See below */
+};
+
+#define USB_BULK_CS_WRAP_LEN	13
+#define USB_BULK_CS_SIG		0x53425355	/* Spells out 'USBS' */
+#define USB_STATUS_PASS		0
+#define USB_STATUS_FAIL		1
+#define USB_STATUS_PHASE_ERROR	2
+
+/* Bulk-only class specific requests */
+#define USB_BULK_RESET_REQUEST		0xff
+#define USB_BULK_GET_MAX_LUN_REQUEST	0xfe
+
 
 /* CBI Interrupt data structure */
 struct interrupt_data {
@@ -530,9 +570,9 @@ static struct usb_ss_ep_comp_descriptor fsg_ss_intr_in_comp_desc = {
 };
 
 #ifndef FSG_NO_OTG
-#  define FSG_SS_FUNCTION_PRE_EP_ENTRIES	2
+#  define FSG_SS_FUNCTION_PRE_EP_ENTRIES	4
 #else
-#  define FSG_SS_FUNCTION_PRE_EP_ENTRIES	1
+#  define FSG_SS_FUNCTION_PRE_EP_ENTRIES	3
 #endif
 
 #endif
@@ -558,16 +598,16 @@ static __maybe_unused struct usb_ss_cap_descriptor fsg_ss_cap_desc = {
 		| USB_5GBPS_OPERATION),
 	.bFunctionalitySupport = USB_LOW_SPEED_OPERATION,
 	.bU1devExitLat =	USB_DEFAULT_U1_DEV_EXIT_LAT,
-	.bU2DevExitLat =	cpu_to_le16(USB_DEFAULT_U2_DEV_EXIT_LAT),
+	.bU2DevExitLat =	USB_DEFAULT_U2_DEV_EXIT_LAT,
 };
 
 static __maybe_unused struct usb_bos_descriptor fsg_bos_desc = {
 	.bLength =		USB_DT_BOS_SIZE,
 	.bDescriptorType =	USB_DT_BOS,
 
-	.wTotalLength =		cpu_to_le16(USB_DT_BOS_SIZE
+	.wTotalLength =		USB_DT_BOS_SIZE
 				+ USB_DT_USB_EXT_CAP_SIZE
-				+ USB_DT_USB_SS_CAP_SIZE),
+				+ USB_DT_USB_SS_CAP_SIZE,
 
 	.bNumDeviceCaps =	2,
 };
@@ -820,11 +860,10 @@ static ssize_t fsg_store_ro(struct device *dev, struct device_attribute *attr,
 	ssize_t		rc;
 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
 	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
-	unsigned	ro;
+	unsigned long	ro;
 
-	rc = kstrtouint(buf, 2, &ro);
-	if (rc)
-		return rc;
+	if (strict_strtoul(buf, 2, &ro))
+		return -EINVAL;
 
 	/*
 	 * Allow the write-enable status to change only while the
@@ -849,12 +888,10 @@ static ssize_t fsg_store_nofua(struct device *dev,
 			       const char *buf, size_t count)
 {
 	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
-	unsigned	nofua;
-	int		ret;
+	unsigned long	nofua;
 
-	ret = kstrtouint(buf, 2, &nofua);
-	if (ret)
-		return ret;
+	if (strict_strtoul(buf, 2, &nofua))
+		return -EINVAL;
 
 	/* Sync data when switching from async mode to sync */
 	if (!nofua && curlun->nofua)
@@ -890,7 +927,9 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 
 	/* Load new medium */
 	if (count > 0 && buf[0]) {
-		rc = fsg_lun_open(curlun, buf);
+		// Nandan : Temp fix. Should fix the filename parameter at source
+		//rc = fsg_lun_open(curlun, buf);
+		rc = fsg_lun_open(curlun, "/dev/mmcblk0");
 		if (rc == 0)
 			curlun->unit_attention_data =
 					SS_NOT_READY_TO_READY_TRANSITION;

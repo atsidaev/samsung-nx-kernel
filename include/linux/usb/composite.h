@@ -37,6 +37,8 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 
+#include <linux/switch.h> //added by wonjung1.kim
+
 /*
  * USB function drivers should return USB_GADGET_DELAYED_STATUS if they
  * wish to delay the data/status stages of the control transfer till they
@@ -118,6 +120,10 @@ struct usb_function {
 
 	struct usb_configuration	*config;
 
+	/** added by wonjung1.kim **/
+	/* disabled is zero if the function is enabled */
+	int				disabled;
+
 	/* REVISIT:  bind() functions can be marked __init, which
 	 * makes trouble for section mismatch analysis.  See if
 	 * we can't restructure things to avoid mismatching.
@@ -149,6 +155,8 @@ struct usb_function {
 	/* internals */
 	struct list_head		list;
 	DECLARE_BITMAP(endpoints, 32);
+   	struct device			*dev; // added by wonjung1.kim
+
 };
 
 int usb_add_function(struct usb_configuration *, struct usb_function *);
@@ -215,6 +223,8 @@ struct usb_configuration {
 	 */
 
 	/* configuration management: unbind/setup */
+   	int			(*bind)(struct usb_configuration *); /** added by wonjung1.kim **/
+
 	void			(*unbind)(struct usb_configuration *);
 	int			(*setup)(struct usb_configuration *,
 					const struct usb_ctrlrequest *);
@@ -291,13 +301,28 @@ struct usb_composite_driver {
 	enum usb_device_speed			max_speed;
 	unsigned		needs_serial:1;
 
-	int			(*unbind)(struct usb_composite_dev *);
+
+    /**added by wonjung1.kim **/
+	struct class		*class;
+	atomic_t		function_count;
+	int			(*bind)(struct usb_composite_dev *);
+
+
+
+
+
+
+    int			(*unbind)(struct usb_composite_dev *);
 
 	void			(*disconnect)(struct usb_composite_dev *);
 
 	/* global suspend hooks */
 	void			(*suspend)(struct usb_composite_dev *);
 	void			(*resume)(struct usb_composite_dev *);
+
+    /** added by wonjung1.kim **/
+   	void			(*enable_function)(struct usb_function *f, int enable);
+
 };
 
 extern int usb_composite_probe(struct usb_composite_driver *driver,
@@ -361,6 +386,13 @@ struct usb_composite_dev {
 	 */
 	unsigned			deactivations;
 
+
+    /**added by wonjung1.kim **/
+	/* used by usb_composite_force_reset to avoid signalling switch changes */
+	bool				mute_switch;
+
+
+
 	/* the composite driver won't complete the control transfer's
 	 * data/status stages till delayed_status is zero.
 	 */
@@ -368,6 +400,21 @@ struct usb_composite_dev {
 
 	/* protects deactivations and delayed_status counts*/
 	spinlock_t			lock;
+
+
+
+    /**added by wonjung1.kim **/
+	struct switch_dev sdev;
+
+	struct work_struct switch_work;
+
+
+//#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+/* soonyong.cho : Below values are used for samsung composite framework. */
+	struct android_usb_product 	*products;	/* products list */
+//#endif
+
+
 };
 
 extern int usb_string_id(struct usb_composite_dev *c);

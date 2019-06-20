@@ -1,0 +1,39 @@
+#
+# selection configurations for LCD Panel Manager
+#
+
+config DRIME4_LCD_PANEL_MANAGER
+	bool "DRIMe4 LCD Panel Manager"
+	depends on DRM_DRIME4_DP_LCD
+	---help---
+	  This is a LCD Panel Manager for DRIMe4
+
+config MAIN_LCD_1_SELECT
+	bool "Main LCD 1 selection"
+	depends on DRIME4_LCD_PANEL_MANAGER
+	---help---
+	  This is a Main LCD 1 selection.
+
+	source "drivers/video/drime4/lcd_panel_manager/mlcd_1_panel/Kconfig"
+
+config MAIN_LCD_2_SELECT
+	bool "Main LCD 2 selection"
+	depends on DRIME4_LCD_PANEL_MANAGER
+	---help---
+	  This is a Main LCD 2 selection.
+
+	source "drivers/video/drime4/lcd_panel_manager/mlcd_2_panel/Kconfig"
+
+config SUB_LCD_SELECT
+	bool "Sub LCD selection"
+	depends on DRIME4_LCD_PANEL_MANAGER
+	---help---
+	  This is a Sub LCD selection.
+
+	source "drivers/video/drime4/lcd_panel_manager/slcd_panel/Kconfig"
+
+config LPM_DEBUG_MODE
+	bool "LCD Panel Manager debug mode"
+	depends on DRIME4_LCD_PANEL_MANAGER
+	---help---
+	  This is a debug mode for LCD Panel Manager

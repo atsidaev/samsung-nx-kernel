@@ -59,6 +59,7 @@ struct mmc_ios {
 #define MMC_TIMING_UHS_SDR104	4
 #define MMC_TIMING_UHS_DDR50	5
 #define MMC_TIMING_MMC_HS200	6
+#define MMC_TIMING_SD_NORMAL	100
 
 #define MMC_SDR_MODE		0
 #define MMC_1_2V_DDR_MODE	1

@@ -701,8 +701,13 @@ void *zs_map_object(struct zs_pool *pool, void *handle)
 		BUG_ON(!nextp);
 
 
+#ifdef ARM /* tempoary porting to use zram in drime4 */
+		set_pte_at(NULL, TASK_SIZE, area->vm_ptes[0], mk_pte(page, PAGE_KERNEL));
+		set_pte_at(NULL, TASK_SIZE, area->vm_ptes[1], mk_pte(nextp, PAGE_KERNEL));
+#else
 		set_pte(area->vm_ptes[0], mk_pte(page, PAGE_KERNEL));
 		set_pte(area->vm_ptes[1], mk_pte(nextp, PAGE_KERNEL));
+#endif
 
 		/* We pre-allocated VM area so mapping can never fail */
 		area->vm_addr = area->vm->addr;
@@ -733,10 +738,17 @@ void zs_unmap_object(struct zs_pool *pool, void *handle)
 	if (off + class->size <= PAGE_SIZE) {
 		kunmap_atomic(area->vm_addr);
 	} else {
+#ifdef ARM /* tempoary porting to use zram in drime4 */
+		set_pte_at(NULL, TASK_SIZE, area->vm_ptes[0], __pte(0));
+		set_pte_at(NULL, TASK_SIZE, area->vm_ptes[1], __pte(0));
+		flush_tlb_kernel_page((unsigned long)area->vm_addr);
+		flush_tlb_kernel_page((unsigned long)area->vm_addr + PAGE_SIZE);
+#else
 		set_pte(area->vm_ptes[0], __pte(0));
 		set_pte(area->vm_ptes[1], __pte(0));
 		__flush_tlb_one((unsigned long)area->vm_addr);
 		__flush_tlb_one((unsigned long)area->vm_addr + PAGE_SIZE);
+#endif
 	}
 	put_cpu_var(zs_map_area);
 }

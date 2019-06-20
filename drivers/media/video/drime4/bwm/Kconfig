@@ -1,0 +1,8 @@
+#
+# selection configurations for BWM(Bandwidth Manager)
+#
+
+config DRIME4_BWM
+	tristate "Samsung DRIMe4 BWM(Bandwidth Manager)"
+	---help---
+	  This is a Bandwidth for DRIMe4

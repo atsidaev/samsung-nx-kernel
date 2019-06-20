@@ -28,6 +28,10 @@
 #include <linux/syscore_ops.h>
 #include <linux/ctype.h>
 #include <linux/genhd.h>
+#ifdef CONFIG_SNAPSHOT_LED_ONOFF
+#include <linux/gpio.h>
+#include <mach/map.h>
+#endif
 
 #include "power.h"
 
@@ -39,7 +43,7 @@ static int resume_delay;
 static char resume_file[256] = CONFIG_PM_STD_PARTITION;
 dev_t swsusp_resume_device;
 sector_t swsusp_resume_block;
-int in_suspend __nosavedata;
+int in_suspend;
 
 enum {
 	HIBERNATION_INVALID,
@@ -245,6 +249,104 @@ void swsusp_show_speed(struct timeval *start, struct timeval *stop,
 			kps / 1000, (kps % 1000) / 10);
 }
 
+#ifdef CONFIG_SNAPSHOT_LED_ONOFF
+#define BOOT_BOOTMODE_ADDRESS	(DRIME4_VA_SONICS_MSRAM + 0x1FFE0)
+#define BOOTMODE_COLDBOOT_MAGIC  (0x434f4c44) /* cold boot */
+#define BOOTMODE_SNAPSHOT_MAGIC  (0x534e4150) /* snapshot boot */
+
+static int blink_led_timer;
+static struct timer_list led_onoff_timer;
+static void led_onoff_timer_callback(unsigned long data);
+
+static void led_onoff(int on)
+{
+	int ret;
+
+	if (on) {
+		blink_led_timer = 1;
+
+		setup_timer(&led_onoff_timer, led_onoff_timer_callback, 0);
+		ret = mod_timer(&led_onoff_timer, jiffies + msecs_to_jiffies(250));
+		if (ret)
+			del_timer(&led_onoff_timer);
+	} else {
+		blink_led_timer = 0;
+	}
+}
+
+static void led_onoff_timer_callback(unsigned long data)
+{
+	static int onoff = 0;
+
+//	printk(KERN_ERR "hello %s function\n", __func__);
+
+	del_timer(&led_onoff_timer);
+
+	if (!blink_led_timer)
+		return;
+
+	led_onoff(1);
+
+	if (onoff == 0) {
+		onoff = 1;
+		gpio_set_value(GPIO_CARD_LED, 0);  // card led off
+		gpio_set_value(GPIO_AF_LED, 1);  // af led off
+	} else {
+		onoff = 0;
+		gpio_set_value(GPIO_CARD_LED, 1);  // card led on
+		gpio_set_value(GPIO_AF_LED, 0);  // af led on
+	}
+}
+
+static int led_onoff_init(void)
+{
+//	printk(KERN_ERR "hello %s function\n", __func__);
+
+	init_timer(&led_onoff_timer);
+
+	led_onoff(1);
+
+	return 0;
+}
+
+static ssize_t led_show(struct kobject *kobj, struct kobj_attribute *attr,
+			   char *buf)
+{
+	if (blink_led_timer)
+		return sprintf(buf, "on\n");
+	else
+		return sprintf(buf, "off\n");
+}
+
+static ssize_t led_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t n)
+{
+	char *p;
+	int len;
+	int error = 0;
+
+	p = memchr(buf, '\n', n);
+	len = p ? p - buf : n;
+
+	if (len == 2 && !strncmp(buf, "on", len))
+		led_onoff(1);
+	else if (len == 3 && !strncmp(buf, "off", len))
+		led_onoff(0);
+	else
+		error = -EINVAL;
+
+	return error ? error : n;
+}
+
+power_attr(led);
+
+#ifndef CONFIG_SCORE_FAST_RESUME
+device_initcall(led_onoff_init);
+#else
+fast_dev_initcall(led_onoff_init);
+#endif
+#endif
+
 /**
  * create_image - Create a hibernation image.
  * @platform_mode: Whether or not to use the platform driver.
@@ -292,11 +394,25 @@ static int create_image(int platform_mode)
 		printk(KERN_ERR "PM: Error %d creating hibernation image\n",
 			error);
 	/* Restore control flow magically appears here */
+    SCORE_TIME_CHECK_AFTER_HIB(0);
+#ifdef CONFIG_SNAPSHOT_LED_ONOFF
+	{
+		u32 boot_magic;
+
+		boot_magic = *(volatile u32 *)BOOT_BOOTMODE_ADDRESS;
+		if (boot_magic == BOOTMODE_SNAPSHOT_MAGIC) {
+			led_onoff(0);  // led blink off
+		} else if (boot_magic != BOOTMODE_COLDBOOT_MAGIC) {
+			printk(KERN_ERR "Error: corrupted boot magic: 0x%x\n", boot_magic);
+		}
+	}
+#endif
 	restore_processor_state();
 	if (!in_suspend) {
 		events_check_enabled = false;
 		platform_leave(platform_mode);
 	}
+    set_snapshot_boot_info();   /* XXX : must be called only when 'in_suspend' is not set */
 
  Power_up:
 	syscore_resume();
@@ -315,6 +431,29 @@ static int create_image(int platform_mode)
 
 	return error;
 }
+extern void all_print_swap_pages(void);
+int swsusp_shrink_memory(void)
+{
+	unsigned long pages, total;
+	struct timeval start, stop;
+    total=0;
+	printk(KERN_INFO "PM: Shrinking memory...  \n");
+	do_gettimeofday(&start);
+	do {
+		pages = shrink_all_memory(image_size/PAGE_SIZE);
+        total += pages;
+		printk("...(%lu pages freed)\n", pages);
+	} while (pages);
+
+	do_gettimeofday(&stop);
+	printk(KERN_INFO "PM: Shrinking memory is done...  \n");
+	printk(KERN_INFO "PM: Total %lu pages freed\n", total);
+	swsusp_show_speed(&start, &stop, total, "Freed");
+
+    all_print_swap_pages();
+
+	return 0;
+}
 
 /**
  * hibernation_snapshot - Quiesce devices and create a hibernation image.
@@ -330,6 +469,15 @@ int hibernation_snapshot(int platform_mode)
 	error = platform_begin(platform_mode);
 	if (error)
 		goto Close;
+
+	error = swsusp_shrink_memory();
+	if (error)
+		goto Close;
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+    error = snapshot_readahead();
+	//if (error)
+	//	goto Close;
+#endif
 
 	/* Preallocate image memory before shutting down devices. */
 	error = hibernate_preallocate_memory();
@@ -355,8 +503,9 @@ int hibernation_snapshot(int platform_mode)
 		dpm_complete(PMSG_RECOVER);
 		goto Thaw;
 	}
-
+#ifndef CONFIG_SCORE_TEST
 	suspend_console();
+#endif
 	ftrace_stop();
 	pm_restrict_gfp_mask();
 
@@ -384,11 +533,14 @@ int hibernation_snapshot(int platform_mode)
 		pm_restore_gfp_mask();
 
 	ftrace_start();
+#ifndef CONFIG_SCORE_TEST
 	resume_console();
+#endif
 	dpm_complete(msg);
 
  Close:
 	platform_end(platform_mode);
+    clear_exdata_used_flag();
 	return error;
 
  Thaw:
@@ -624,6 +776,15 @@ static void power_down(void)
 	printk(KERN_CRIT "PM: Please power down manually\n");
 	while(1);
 }
+#ifdef  CONFIG_SCORE_FBDBG
+extern int gpio_set_val;
+#endif
+#ifdef CONFIG_SCORE_FBDBG_FILE
+extern int from_hib;
+#endif
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+void score_dbg_info_enable(void);
+#endif
 
 /**
  * hibernate - Carry out system hibernation, including saving the image.
@@ -672,6 +833,10 @@ int hibernate(void)
 		        flags |= SF_CRC32_MODE;
 
 		pr_debug("PM: writing image.\n");
+
+		if (!swsusp_resume_device)
+			swsusp_resume_device = name_to_dev_t(resume_file);
+
 		error = swsusp_write(flags);
 		swsusp_free();
 		if (!error)
@@ -683,6 +848,16 @@ int hibernate(void)
 	}
 
  Thaw:
+    SCORE_TIME_CHECK_AFTER_HIB(1);
+#ifdef  CONFIG_SCORE_FBDBG
+    gpio_set_val=1;
+#endif
+#ifdef CONFIG_SCORE_FBDBG_FILE
+    from_hib=1;
+#endif
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+    score_dbg_info_enable();
+#endif
 	thaw_processes();
 
 	/* Don't bother checking whether freezer_test_done is true */
@@ -696,6 +871,7 @@ int hibernate(void)
 	atomic_inc(&snapshot_device_available);
  Unlock:
 	unlock_system_sleep();
+    SCORE_TIME_CHECK_AFTER_HIB(2);
 	return error;
 }
 
@@ -723,8 +899,15 @@ static int software_resume(void)
 	/*
 	 * If the user said "noresume".. bail out early.
 	 */
+#ifndef CONFIG_SCORE_FAST_BOOT
 	if (noresume)
 		return 0;
+#else
+	if (noresume) {
+		error = 0;
+		goto Out;
+	}
+#endif
 
 	/*
 	 * name_to_dev_t() below takes a sysfs buffer mutex when sysfs
@@ -839,14 +1022,37 @@ static int software_resume(void)
  Unlock:
 	mutex_unlock(&pm_mutex);
 	pr_debug("PM: Hibernation image not present or could not be loaded.\n");
+#ifdef CONFIG_SCORE_FAST_BOOT
+Out:
+	{
+		extern void register_cma_nosave_region(void);
+		extern void register_text_nosave_region(void);
+
+		register_cma_nosave_region();
+		register_text_nosave_region();
+	}
+#endif
 	return error;
 close_finish:
 	swsusp_close(FMODE_READ);
 	goto Finish;
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 late_initcall(software_resume);
+#else
+resume_initcall(software_resume);
+#endif
 
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+int get_resume_device(void)
+{
+	swsusp_resume_device = name_to_dev_t(resume_file);
+    if (swsusp_resume_device)
+        return 0;
+    return -EINVAL;
+}
+#endif
 
 static const char * const hibernation_modes[] = {
 	[HIBERNATION_PLATFORM]	= "platform",
@@ -1043,6 +1249,9 @@ static struct attribute * g[] = {
 	&resume_attr.attr,
 	&image_size_attr.attr,
 	&reserved_size_attr.attr,
+#ifdef CONFIG_SNAPSHOT_LED_ONOFF
+	&led_attr.attr,
+#endif
 	NULL,
 };
 

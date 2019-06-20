@@ -29,10 +29,19 @@
 #include "debug.h"
 #include "cfg80211.h"
 
+#if 1 /* 20120820 Matt WiFi on/off */
+#include <linux/platform_device.h>
+#include <mach/devs.h>
+#include <mach/gpio.h>
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
+#if 0
+#define _SDIO_API_TRACE_
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 struct ath6kl_sdio {
 	struct sdio_func *func;
 
-	/* protects access to bus_req_freeq */
 	spinlock_t lock;
 
 	/* free list */
@@ -54,17 +63,13 @@ struct ath6kl_sdio {
 	atomic_t irq_handling;
 	wait_queue_head_t irq_wq;
 
-	/* protects access to scat_req */
 	spinlock_t scat_lock;
-
 	bool scatter_enabled;
 
 	bool is_disabled;
 	const struct sdio_device_id *id;
 	struct work_struct wr_async_work;
 	struct list_head wr_asyncq;
-
-	/* protects access to wr_asyncq */
 	spinlock_t wr_async_lock;
 };
 
@@ -135,13 +140,28 @@ static int ath6kl_sdio_func0_cmd52_wr_byte(struct mmc_card *card,
 					   unsigned char byte)
 {
 	struct mmc_command io_cmd;
+#if 1
+	int ret = 0;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	memset(&io_cmd, 0, sizeof(io_cmd));
 	ath6kl_sdio_set_cmd52_arg(&io_cmd.arg, 1, 0, address, byte);
 	io_cmd.opcode = SD_IO_RW_DIRECT;
 	io_cmd.flags = MMC_RSP_R5 | MMC_CMD_AC;
 
+#if 0
 	return mmc_wait_for_cmd(card->host, &io_cmd, 0);
+#else
+#ifdef _SDIO_API_TRACE_
+	ath6kl_info("[%d:%s()] mmc_wait_for_cmd() >>\n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+	ret = mmc_wait_for_cmd(card->host, &io_cmd, 0);
+#ifdef _SDIO_API_TRACE_
+	ath6kl_info("[%d:%s()] mmc_wait_for_cmd() <<\n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
+	return ret;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 }
 
 static int ath6kl_sdio_io(struct sdio_func *func, u32 request, u32 addr,
@@ -150,6 +170,10 @@ static int ath6kl_sdio_io(struct sdio_func *func, u32 request, u32 addr,
 	int ret = 0;
 
 	sdio_claim_host(func);
+
+#ifdef _SDIO_API_TRACE_
+	ath6kl_info("[%d:%s()] ath6kl_sdio_io() >>\n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	if (request & HIF_WRITE) {
 		/* FIXME: looks like ugly workaround for something */
@@ -172,12 +196,25 @@ static int ath6kl_sdio_io(struct sdio_func *func, u32 request, u32 addr,
 			ret = sdio_memcpy_fromio(func, buf, addr, len);
 	}
 
+#ifdef _SDIO_API_TRACE_
+	ath6kl_info("[%d:%s()] ath6kl_sdio_io() <<\n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 	sdio_release_host(func);
 
 	ath6kl_dbg(ATH6KL_DBG_SDIO, "%s addr 0x%x%s buf 0x%p len %d\n",
 		   request & HIF_WRITE ? "wr" : "rd", addr,
 		   request & HIF_FIXED_ADDRESS ? " (fixed)" : "", buf, len);
 	ath6kl_dbg_dump(ATH6KL_DBG_SDIO_DUMP, NULL, "sdio ", buf, len);
+
+#ifdef _SDIO_API_TRACE_
+	if(ret) {
+		while(1) {
+			mdelay(10);
+			ath6kl_info("[%d:%s()] Error: %d\n", __LINE__, __func__, ret); 
+		}
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	return ret;
 }
@@ -310,7 +347,13 @@ static int ath6kl_sdio_scat_rw(struct ath6kl_sdio *ar_sdio,
 
 	mmc_set_data_timeout(&data, ar_sdio->func->card);
 	/* synchronous call to process request */
+#ifdef _SDIO_API_TRACE_
+	ath6kl_info("[%d:%s()] mmc_wait_for_req() >> \n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 	mmc_wait_for_req(ar_sdio->func->card->host, &mmc_req);
+#ifdef _SDIO_API_TRACE_
+	ath6kl_info("[%d:%s()] mmc_wait_for_req() << \n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	sdio_release_host(ar_sdio->func);
 
@@ -470,8 +513,21 @@ static void ath6kl_sdio_irq_handler(struct sdio_func *func)
 
 	ath6kl_dbg(ATH6KL_DBG_SDIO, "irq\n");
 
+#if 0 //donghyeon.kim (2013-02-13 17:48:21) - Static Test
 	ar_sdio = sdio_get_drvdata(func);
+#else
+	ar_sdio = (struct ath6kl_sdio *)sdio_get_drvdata(func);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+#if 0 //wonjoons.cho (2013-02-22 11:02:23)
 	atomic_set(&ar_sdio->irq_handling, 1);
+#else
+	if (ar_sdio) {
+		atomic_set(&ar_sdio->irq_handling, 1);
+	}
+	else {
+		ath6kl_dbg(ATH6KL_DBG_SDIO, "ar_sdio == NULL\n");
+		}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */ //wonjoons.cho (2013-02-22 11:02:23) 
 	/*
 	 * Release the host during interrups so we can pick it back up when
 	 * we process commands.
@@ -480,7 +536,6 @@ static void ath6kl_sdio_irq_handler(struct sdio_func *func)
 
 	status = ath6kl_hif_intr_bh_handler(ar_sdio->ar);
 	sdio_claim_host(ar_sdio->func);
-
 	atomic_set(&ar_sdio->irq_handling, 0);
 	wake_up(&ar_sdio->irq_wq);
 
@@ -552,7 +607,7 @@ static int ath6kl_sdio_write_async(struct ath6kl *ar, u32 address, u8 *buffer,
 
 	bus_req = ath6kl_sdio_alloc_busreq(ar_sdio);
 
-	if (WARN_ON_ONCE(!bus_req))
+	if (!bus_req)
 		return -ENOMEM;
 
 	bus_req->address = address;
@@ -602,7 +657,7 @@ static void ath6kl_sdio_irq_disable(struct ath6kl *ar)
 		sdio_release_host(ar_sdio->func);
 
 		ret = wait_event_interruptible(ar_sdio->irq_wq,
-					       ath6kl_sdio_is_on_irq(ar));
+				ath6kl_sdio_is_on_irq(ar));
 		if (ret)
 			return;
 
@@ -661,8 +716,8 @@ static int ath6kl_sdio_async_rw_scatter(struct ath6kl *ar,
 		return -EINVAL;
 
 	ath6kl_dbg(ATH6KL_DBG_SCATTER,
-		   "hif-scatter: total len: %d scatter entries: %d\n",
-		   scat_req->len, scat_req->scat_entries);
+		"hif-scatter: total len: %d scatter entries: %d\n",
+		scat_req->len, scat_req->scat_entries);
 
 	if (request & HIF_SYNCHRONOUS)
 		status = ath6kl_sdio_scat_rw(ar_sdio, scat_req->busrequest);
@@ -774,6 +829,10 @@ static int ath6kl_sdio_config(struct ath6kl *ar)
 	struct sdio_func *func = ar_sdio->func;
 	int ret;
 
+#if 1 //donghyeon.kim (2012-11-30 18:34:39)
+	ath6kl_info("[%d:%s()] sdio config\n", __LINE__, __func__);	
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 	sdio_claim_host(func);
 
 	if ((ar_sdio->id->device & MANUFACTURER_ID_ATH6KL_BASE_MASK) >=
@@ -836,6 +895,7 @@ static int ath6kl_set_sdio_pm_caps(struct ath6kl *ar)
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 {
 	struct ath6kl_sdio *ar_sdio = ath6kl_sdio_priv(ar);
@@ -843,6 +903,36 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 	mmc_pm_flag_t flags;
 	bool try_deepsleep = false;
 	int ret;
+
+	ath6kl_info("[%d:%s()] Enter!\n", __LINE__, __func__);
+
+#if 1 /* 20121126 Matt: rfkill with suspend/resume */
+	if (ar->rfkill_blocked) {
+		ath6kl_emerg("[%d:%s()] already suspended by rfkill!(state: %s)\n", __LINE__, __func__,
+						((ar->state == ATH6KL_STATE_OFF) ? "ATH6KL_STATE_OFF" :
+			            		(ar->state == ATH6KL_STATE_ON)	? "ATH6KL_STATE_ON" :
+			            		(ar->state == ATH6KL_STATE_SUSPENDING)	? "ATH6KL_STATE_SUSPENDING" :
+			            		(ar->state == ATH6KL_STATE_RESUMING) ? "ATH6KL_STATE_RESUMING" :
+			            		(ar->state == ATH6KL_STATE_DEEPSLEEP) ? "ATH6KL_STATE_DEEPSLEEP" :
+			            		(ar->state == ATH6KL_STATE_CUTPOWER) ? "ATH6KL_STATE_CUTPOWER" :
+			            		(ar->state == ATH6KL_STATE_WOW) ? "ATH6KL_STATE_WOW" :
+			            		(ar->state == ATH6KL_STATE_SCHED_SCAN)	? "ATH6KL_STATE_SCHED_SCAN" :	
+			            		"Unknown"));
+		return 0;
+	}
+	else {
+		ath6kl_emerg("[%d:%s()] Going to suspend,... (state: %s)\n", __LINE__, __func__,
+						((ar->state == ATH6KL_STATE_OFF) ? "ATH6KL_STATE_OFF" :
+			            		(ar->state == ATH6KL_STATE_ON)	? "ATH6KL_STATE_ON" :
+			            		(ar->state == ATH6KL_STATE_SUSPENDING)	? "ATH6KL_STATE_SUSPENDING" :
+			            		(ar->state == ATH6KL_STATE_RESUMING) ? "ATH6KL_STATE_RESUMING" :
+			            		(ar->state == ATH6KL_STATE_DEEPSLEEP) ? "ATH6KL_STATE_DEEPSLEEP" :
+			            		(ar->state == ATH6KL_STATE_CUTPOWER) ? "ATH6KL_STATE_CUTPOWER" :
+			            		(ar->state == ATH6KL_STATE_WOW) ? "ATH6KL_STATE_WOW" :
+			            		(ar->state == ATH6KL_STATE_SCHED_SCAN)	? "ATH6KL_STATE_SCHED_SCAN" :	
+			            		"Unknown"));
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	if (ar->state == ATH6KL_STATE_SCHED_SCAN) {
 		ath6kl_dbg(ATH6KL_DBG_SUSPEND, "sched scan is in progress\n");
@@ -857,8 +947,24 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 		if (ret)
 			goto cut_pwr;
 
+#if 1 //donghyeon.kim (2013-02-13 19:04:58)
+		ath6kl_info("[%d:%s()] Exit!\n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 		return 0;
 	}
+
+	/*
+	 * Wait for sometime for recovery work to get
+	 * scheduled on any detected firmware error.
+	 */
+	if (ar->fw_recovery.err_reason)
+		usleep_range(5000, 10000);
+
+	ar->fw_recovery.enable = false;
+
+	cancel_work_sync(&ar->fw_recovery.recovery_work);
+
+	ar->fw_recovery.err_reason = 0;
 
 	if (ar->suspend_mode == WLAN_POWER_STATE_WOW ||
 	    (!ar->suspend_mode && wow)) {
@@ -871,15 +977,17 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 		if (ret && ret != -ENOTCONN)
 			ath6kl_err("wow suspend failed: %d\n", ret);
 
-		if (ret &&
-		    (!ar->wow_suspend_mode ||
-		     ar->wow_suspend_mode == WLAN_POWER_STATE_DEEP_SLEEP))
-			try_deepsleep = true;
+		if (ret && (!ar->wow_suspend_mode ||
+		    ar->wow_suspend_mode == WLAN_POWER_STATE_DEEP_SLEEP))
+				try_deepsleep = true;
 		else if (ret &&
 			 ar->wow_suspend_mode == WLAN_POWER_STATE_CUT_PWR)
-			goto cut_pwr;
-		if (!ret)
+				goto cut_pwr;
+		
+		if (!ret) {
+			ath6kl_info("[%d:%s()] Exit!\n", __LINE__, __func__);
 			return 0;
+		}
 	}
 
 	if (ar->suspend_mode == WLAN_POWER_STATE_DEEP_SLEEP ||
@@ -911,6 +1019,9 @@ static int ath6kl_sdio_suspend(struct ath6kl *ar, struct cfg80211_wowlan *wow)
 		if (ret)
 			goto cut_pwr;
 
+#if 1 //donghyeon.kim (2013-02-13 19:04:58)
+		ath6kl_info("[%d:%s()] Exit!\n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 		return 0;
 	}
 
@@ -918,11 +1029,56 @@ cut_pwr:
 	if (func->card && func->card->host)
 		func->card->host->pm_flags &= ~MMC_PM_KEEP_POWER;
 
+#if 0 //donghyeon.kim (2012-11-15 15:13:51)
 	return ath6kl_cfg80211_suspend(ar, ATH6KL_CFG_SUSPEND_CUTPOWER, NULL);
+#else
+	ret = ath6kl_cfg80211_suspend(ar, ATH6KL_CFG_SUSPEND_CUTPOWER, NULL);
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	if (!ret)
+		func->cutpower_setup = 1;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+	ath6kl_info("[%d:%s()] Exit!\n", __LINE__, __func__);
+	return ret;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 }
 
 static int ath6kl_sdio_resume(struct ath6kl *ar)
 {
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	struct ath6kl_sdio *ar_sdio = ath6kl_sdio_priv(ar);
+	struct sdio_func *func = ar_sdio->func;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
+	ath6kl_info("[%d:%s()] Enter!\n", __LINE__, __func__);
+
+#if 1 /* 20121126 Matt: rfkill with suspend/resume */
+	if (ar->rfkill_blocked) {
+		ath6kl_emerg("[%d:%s()] no need to be resumed because rfkill blocked! (state: %s)\n", __LINE__, __func__,
+						((ar->state == ATH6KL_STATE_OFF) ? "ATH6KL_STATE_OFF" :
+			            		(ar->state == ATH6KL_STATE_ON)	? "ATH6KL_STATE_ON" :
+			            		(ar->state == ATH6KL_STATE_SUSPENDING)	? "ATH6KL_STATE_SUSPENDING" :
+			            		(ar->state == ATH6KL_STATE_RESUMING) ? "ATH6KL_STATE_RESUMING" :
+			            		(ar->state == ATH6KL_STATE_DEEPSLEEP) ? "ATH6KL_STATE_DEEPSLEEP" :
+			            		(ar->state == ATH6KL_STATE_CUTPOWER) ? "ATH6KL_STATE_CUTPOWER" :
+			            		(ar->state == ATH6KL_STATE_WOW) ? "ATH6KL_STATE_WOW" :
+			            		(ar->state == ATH6KL_STATE_SCHED_SCAN)	? "ATH6KL_STATE_SCHED_SCAN" :	
+			            		"Unknown"));
+		return 0;
+	}
+	else {
+		ath6kl_emerg("[%d:%s()] Going to resume,... (state: %s)\n", __LINE__, __func__,
+						((ar->state == ATH6KL_STATE_OFF) ? "ATH6KL_STATE_OFF" :
+			            		(ar->state == ATH6KL_STATE_ON)	? "ATH6KL_STATE_ON" :
+			            		(ar->state == ATH6KL_STATE_SUSPENDING)	? "ATH6KL_STATE_SUSPENDING" :
+			            		(ar->state == ATH6KL_STATE_RESUMING) ? "ATH6KL_STATE_RESUMING" :
+			            		(ar->state == ATH6KL_STATE_DEEPSLEEP) ? "ATH6KL_STATE_DEEPSLEEP" :
+			            		(ar->state == ATH6KL_STATE_CUTPOWER) ? "ATH6KL_STATE_CUTPOWER" :
+			            		(ar->state == ATH6KL_STATE_WOW) ? "ATH6KL_STATE_WOW" :
+			            		(ar->state == ATH6KL_STATE_SCHED_SCAN)	? "ATH6KL_STATE_SCHED_SCAN" :	
+			            		"Unknown"));
+	}	
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+	
 	switch (ar->state) {
 	case ATH6KL_STATE_OFF:
 	case ATH6KL_STATE_CUTPOWER:
@@ -954,8 +1110,19 @@ static int ath6kl_sdio_resume(struct ath6kl *ar)
 
 	ath6kl_cfg80211_resume(ar);
 
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	if (func->cutpower_setup)
+		func->cutpower_setup = 0;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
+	ar->fw_recovery.enable = true;
+
+#if 1 //donghyeon.kim (2013-02-13 19:04:58)
+	ath6kl_info("[%d:%s()] Exit!\n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 	return 0;
 }
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34)) */
 
 /* set the window address register (using 4-byte register access ). */
 static int ath6kl_set_addrwin_reg(struct ath6kl *ar, u32 reg_addr, u32 addr)
@@ -988,8 +1155,9 @@ static int ath6kl_set_addrwin_reg(struct ath6kl *ar, u32 reg_addr, u32 addr)
 	}
 
 	if (status) {
-		ath6kl_err("%s: failed to write initial bytes of 0x%x to window reg: 0x%X\n",
-			   __func__, addr, reg_addr);
+		ath6kl_err("%s: failed to write initial bytes of 0x%x "
+			   "to window reg: 0x%X\n", __func__,
+			   addr, reg_addr);
 		return status;
 	}
 
@@ -1027,7 +1195,7 @@ static int ath6kl_sdio_diag_read32(struct ath6kl *ar, u32 address, u32 *data)
 				(u8 *)data, sizeof(u32), HIF_RD_SYNC_BYTE_INC);
 	if (status) {
 		ath6kl_err("%s: failed to read from window data addr\n",
-			   __func__);
+			__func__);
 		return status;
 	}
 
@@ -1078,8 +1246,8 @@ static int ath6kl_sdio_bmi_credits(struct ath6kl *ar)
 					 (u8 *)&ar->bmi.cmd_credits, 4,
 					 HIF_RD_SYNC_BYTE_INC);
 		if (ret) {
-			ath6kl_err("Unable to decrement the command credit count register: %d\n",
-				   ret);
+			ath6kl_err("Unable to decrement the command credit "
+						"count register: %d\n", ret);
 			return ret;
 		}
 
@@ -1256,8 +1424,10 @@ static const struct ath6kl_hif_ops ath6kl_sdio_ops = {
 	.enable_scatter = ath6kl_sdio_enable_scatter,
 	.scat_req_rw = ath6kl_sdio_async_rw_scatter,
 	.cleanup_scatter = ath6kl_sdio_cleanup_scatter,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 	.suspend = ath6kl_sdio_suspend,
 	.resume = ath6kl_sdio_resume,
+#endif
 	.diag_read32 = ath6kl_sdio_diag_read32,
 	.diag_write32 = ath6kl_sdio_diag_write32,
 	.bmi_read = ath6kl_sdio_bmi_read,
@@ -1267,7 +1437,7 @@ static const struct ath6kl_hif_ops ath6kl_sdio_ops = {
 	.stop = ath6kl_sdio_stop,
 };
 
-#ifdef CONFIG_PM_SLEEP
+#if defined(CONFIG_PM_SLEEP) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 
 /*
  * Empty handlers so that mmc subsystem doesn't remove us entirely during
@@ -1305,6 +1475,13 @@ static int ath6kl_sdio_probe(struct sdio_func *func,
 	struct ath6kl_sdio *ar_sdio;
 	struct ath6kl *ar;
 	int count;
+#if 1 //donghyeon.kim (2013-02-12 10:21:16)
+	int i = 0, loop_count = 20;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
+#if 1 //donghyeon.kim (2012-11-30 18:34:39)
+	ath6kl_info("[%d:%s()] sdio probe\n", __LINE__, __func__);	
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */		
 
 	ath6kl_dbg(ATH6KL_DBG_BOOT,
 		   "sdio new func %d vendor 0x%x device 0x%x block 0x%x/0x%x\n",
@@ -1337,13 +1514,12 @@ static int ath6kl_sdio_probe(struct sdio_func *func,
 	INIT_LIST_HEAD(&ar_sdio->wr_asyncq);
 
 	INIT_WORK(&ar_sdio->wr_async_work, ath6kl_sdio_write_async_work);
-
 	init_waitqueue_head(&ar_sdio->irq_wq);
 
 	for (count = 0; count < BUS_REQUEST_MAX_NUM; count++)
 		ath6kl_sdio_free_bus_req(ar_sdio, &ar_sdio->bus_req[count]);
 
-	ar = ath6kl_core_create(&ar_sdio->func->dev);
+	ar = ath6kl_core_alloc(&ar_sdio->func->dev);
 	if (!ar) {
 		ath6kl_err("Failed to alloc ath6kl core\n");
 		ret = -ENOMEM;
@@ -1355,6 +1531,12 @@ static int ath6kl_sdio_probe(struct sdio_func *func,
 	ar->hif_priv = ar_sdio;
 	ar->hif_ops = &ath6kl_sdio_ops;
 	ar->bmi.max_data_size = 256;
+#if 1 /* 20121126 Matt: rfkill with suspend/resume */
+	ar->rfkill_blocked = 0;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+#if 1 //donghyeon.kim (2013-02-08 10:21:16)
+	ar->wmi_ready = false;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	ath6kl_sdio_set_mbox_info(ar);
 
@@ -1364,16 +1546,39 @@ static int ath6kl_sdio_probe(struct sdio_func *func,
 		goto err_core_alloc;
 	}
 
-	ret = ath6kl_core_init(ar, ATH6KL_HTC_TYPE_MBOX);
+	ret = ath6kl_core_init(ar);
 	if (ret) {
 		ath6kl_err("Failed to init ath6kl core\n");
 		goto err_core_alloc;
 	}
 
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+	func->cutpower_setup_cb = ath6kl_setup_power;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
+#if 1 //donghyeon.kim (2013-02-12 10:21:16)
+	//wait WMI_READY event
+	while(1)
+	{
+		if (ar->wmi_ready) {
+			ath6kl_emerg("[%d:%s()] wmi is ready\n", __LINE__, __func__);
+			break;
+		}
+
+		//check loop_count
+		if(++i > loop_count) {
+			ath6kl_emerg("[%d:%s()] wmi is not ready! loop_count expired!\n", __LINE__, __func__);
+			break;
+		}
+
+		mdelay(100);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 	return ret;
 
 err_core_alloc:
-	ath6kl_core_destroy(ar_sdio->ar);
+	ath6kl_core_free(ar_sdio->ar);
 err_dma:
 	kfree(ar_sdio->dma_buffer);
 err_hif:
@@ -1386,20 +1591,42 @@ static void ath6kl_sdio_remove(struct sdio_func *func)
 {
 	struct ath6kl_sdio *ar_sdio;
 
+#if 1 //donghyeon.kim (2012-11-30 18:34:39)
+	ath6kl_info("[%d:%s()] sdio remove\n", __LINE__, __func__);	
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */	
+
 	ath6kl_dbg(ATH6KL_DBG_BOOT,
 		   "sdio removed func %d vendor 0x%x device 0x%x\n",
 		   func->num, func->vendor, func->device);
 
+#if 0 //donghyeon.kim (2013-02-13 17:49:21) - Static Test
 	ar_sdio = sdio_get_drvdata(func);
+#else
+	ar_sdio = (struct ath6kl_sdio *)sdio_get_drvdata(func);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
+#if 0 //wonjoons.cho (2013-02-22 11:05:56)
 	ath6kl_stop_txrx(ar_sdio->ar);
 	cancel_work_sync(&ar_sdio->wr_async_work);
 
 	ath6kl_core_cleanup(ar_sdio->ar);
-	ath6kl_core_destroy(ar_sdio->ar);
 
 	kfree(ar_sdio->dma_buffer);
 	kfree(ar_sdio);
+#else
+if (ar_sdio) {
+	ath6kl_stop_txrx(ar_sdio->ar);
+	cancel_work_sync(&ar_sdio->wr_async_work);
+
+	ath6kl_core_cleanup(ar_sdio->ar);
+
+	kfree(ar_sdio->dma_buffer);
+	kfree(ar_sdio);
+}
+else {
+	ath6kl_dbg(ATH6KL_DBG_SDIO, "ar_sdio == NULL\n");
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */ //wonjoons.cho (2013-02-22 11:05:56) 
 }
 
 static const struct sdio_device_id ath6kl_sdio_devices[] = {
@@ -1417,13 +1644,132 @@ static struct sdio_driver ath6kl_sdio_driver = {
 	.id_table = ath6kl_sdio_devices,
 	.probe = ath6kl_sdio_probe,
 	.remove = ath6kl_sdio_remove,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
 	.drv.pm = ATH6KL_SDIO_PM_OPS,
+#endif
 };
+
+#if 1 /* 20120820 Matt WiFi on/off */
+extern void sdhci_s3c_force_presence_change(struct platform_device *pdev);
+
+static void wlan_setup_power(int on, int detect)
+{
+    ath6kl_info("[%d:%s()] %s\n", __LINE__, __func__, on ? "on" : "down");
+
+    if (on) {
+#ifdef CONFIG_MACH_D4_NX2000
+	/* WL_PWR_CNT - High */
+	gpio_set_value(GPIO_WIFI_LDO_ON, 1);
+	mdelay(100);
+#endif /* CONFIG_MACH_D4_NX2000 */
+
+	/* WL_RESET_N - Low */
+        gpio_set_value(GPIO_WIFI_RESET_N, 0);
+	mdelay(100);
+
+	/* WL_RESET_N - High */
+        gpio_set_value(GPIO_WIFI_RESET_N, 1);
+	mdelay(100);
+    } else {
+	/* WL_RESET_N - Low */
+        gpio_set_value(GPIO_WIFI_RESET_N, 0);
+#ifdef CONFIG_MACH_D4_NX2000
+	/* WL_PWR_CNT - Low */
+	gpio_set_value(GPIO_WIFI_LDO_ON, 0);
+#endif /* CONFIG_MACH_D4_NX2000 */
+    }
+
+    if (detect) {
+        /* mmc_rescan*/
+        sdhci_s3c_force_presence_change(&drime4_device_sdio);    
+    }
+    
+    ath6kl_info("[%d:%s()] exit\n", __LINE__, __func__);
+}
+
+#if 1 /* Matt: 20130116 cutpower mode implementation */
+int ath6kl_setup_power(int on)
+{
+    ath6kl_info("[%d:%s()] \n", __LINE__, __func__);
+    wlan_setup_power(on, 0);
+    return 0;
+}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
+static int ath6kl_pm_probe(struct platform_device *pdev)
+{
+    ath6kl_info("[%d:%s()] \n", __LINE__, __func__);
+    wlan_setup_power(1, 1);
+    return 0;
+}
+
+static int ath6kl_pm_remove(struct platform_device *pdev)
+{
+    ath6kl_info("[%d:%s()]\n", __LINE__, __func__);
+#if 0 /* Matt: 20130116 cutpower mode implementation */    
+    wlan_setup_power(0, 1);
+#else
+    wlan_setup_power(0, 0);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+    return 0;
+}
+
+static int ath6kl_pm_suspend(struct platform_device *pdev, pm_message_t state)
+{
+    ath6kl_info("[%d:%s()] \n", __LINE__, __func__);
+    return 0;
+}
+
+static int ath6kl_pm_resume(struct platform_device *pdev)
+{
+    ath6kl_info("[%d:%s()] \n", __LINE__, __func__);
+    
+#if 0 //donghyeon.kim (2012-11-30 18:26:10)
+#ifdef CONFIG_MACH_D4_NX2000
+    gpio_set_value(GPIO_WIFI_LDO_ON, 1);
+    mdelay(100);
+#endif /* CONFIG_MACH_D4_NX2000 */
+    gpio_set_value(GPIO_WIFI_RESET_N, 1);
+    mdelay(20);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
+    return 0;
+}
+
+static struct platform_driver ath6kl_pm_device = {
+    .probe      = ath6kl_pm_probe,
+    .remove     = ath6kl_pm_remove,
+    .suspend    = ath6kl_pm_suspend,
+    .resume     = ath6kl_pm_resume,
+    .driver     = {
+        .name = "wlan_ar6000_pm_dev",
+    },
+};
+
+void __init ath6kl_sdio_init_drime4(void)
+{
+    ath6kl_info("[%d:%s()] Enter\n", __LINE__, __func__);
+
+    platform_driver_register(&ath6kl_pm_device);
+    mdelay(50);
+}
+
+void __exit ath6kl_sdio_exit_drime4(void)
+{
+    ath6kl_info("[%d:%s()] Enter\n", __LINE__, __func__);
+
+    platform_driver_unregister(&ath6kl_pm_device);
+    mdelay(1000);
+}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 static int __init ath6kl_sdio_init(void)
 {
 	int ret;
 
+#if 1 /* 20120820 Matt WiFi on/off */
+	ath6kl_sdio_init_drime4();
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 	ret = sdio_register_driver(&ath6kl_sdio_driver);
 	if (ret)
 		ath6kl_err("sdio driver registration failed: %d\n", ret);
@@ -1434,6 +1780,9 @@ static int __init ath6kl_sdio_init(void)
 static void __exit ath6kl_sdio_exit(void)
 {
 	sdio_unregister_driver(&ath6kl_sdio_driver);
+#if 1 /* 20120820 Matt WiFi on/off */
+	ath6kl_sdio_exit_drime4();
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 }
 
 module_init(ath6kl_sdio_init);
@@ -1459,6 +1808,3 @@ MODULE_FIRMWARE(AR6004_HW_1_0_DEFAULT_BOARD_DATA_FILE);
 MODULE_FIRMWARE(AR6004_HW_1_1_FW_DIR "/" AR6004_HW_1_1_FIRMWARE_FILE);
 MODULE_FIRMWARE(AR6004_HW_1_1_BOARD_DATA_FILE);
 MODULE_FIRMWARE(AR6004_HW_1_1_DEFAULT_BOARD_DATA_FILE);
-MODULE_FIRMWARE(AR6004_HW_1_2_FW_DIR "/" AR6004_HW_1_2_FIRMWARE_FILE);
-MODULE_FIRMWARE(AR6004_HW_1_2_BOARD_DATA_FILE);
-MODULE_FIRMWARE(AR6004_HW_1_2_DEFAULT_BOARD_DATA_FILE);

@@ -1,0 +1,8 @@
+#
+# D4 JPEG drivers configurations
+#
+
+config DRIME4_JPEG
+	tristate "Samsung DRIMe4 JPEG driver"
+	---help---
+	  This is a JPEG driver for Samsung DRIMe4

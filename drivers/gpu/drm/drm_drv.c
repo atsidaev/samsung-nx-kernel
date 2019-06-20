@@ -312,7 +312,11 @@ static void __exit drm_core_exit(void)
 	idr_destroy(&drm_minors_idr);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 module_init(drm_core_init);
+#else
+fast_late_initcall(drm_core_init);
+#endif
 module_exit(drm_core_exit);
 
 /**

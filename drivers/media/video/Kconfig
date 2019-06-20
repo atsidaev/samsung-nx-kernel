@@ -638,6 +638,8 @@ config VIDEO_VIVI
 	  Say Y here if you want to test video apps or debug V4L devices.
 	  In doubt, say N.
 
+source "drivers/media/video/drime4/Kconfig"
+
 #
 # USB Multimedia device configuration
 #

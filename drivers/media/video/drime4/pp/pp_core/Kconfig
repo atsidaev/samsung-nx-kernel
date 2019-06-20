@@ -1,0 +1,9 @@
+#
+# D4 PP Core drivers configurations
+#
+
+config DRIME4_PP_CORE
+	tristate "Samsung DRIMe4 PP Core driver"
+	depends on VIDEO_DEV && VIDEO_V4L2 && ARCH_DRIME4
+	---help---
+	  This is a PP Core driver for Samsung DRIMe4

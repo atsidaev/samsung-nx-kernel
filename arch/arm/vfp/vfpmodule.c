@@ -720,4 +720,9 @@ static int __init vfp_init(void)
 	return 0;
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 late_initcall(vfp_init);
+#else
+fast_late_initcall(vfp_init);
+#endif
+

@@ -205,6 +205,11 @@ struct wm8994_pdata {
 	 * system.
 	 */
 	bool spkmode_pu;
+	
+#ifdef CONFIG_SND_SOC_D4_WM8994
+	void (*power_enable)(void);
+#endif
+
 };
 
 #endif

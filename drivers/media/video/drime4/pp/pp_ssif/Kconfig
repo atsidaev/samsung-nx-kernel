@@ -1,0 +1,9 @@
+#
+# D4 PP SSIF drivers configurations
+#
+
+config DRIME4_PP_SSIF
+	tristate "Samsung DRIMe4 PP ssif driver"
+	depends on VIDEO_DEV && VIDEO_V4L2 && ARCH_DRIME4
+	---help---
+	  This is a PP ssif driver for Samsung DRIMe4

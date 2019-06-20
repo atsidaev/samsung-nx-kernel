@@ -1,0 +1,9 @@
+#
+# DRIMe4 GPU drivers configurations
+#
+
+config DRIME4_GPU_1_7_RC867897
+#	bool "Samsung DRIMe4 GPU driver (ver. 1.7 RC867897)"
+	tristate "Samsung DRIMe4 GPU driver (ver. 1.7 RC867897)"
+	help
+	  This is a GPU driver(DDK 1.7 RC867897) for Samsung DRIMe4

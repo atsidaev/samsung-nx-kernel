@@ -304,6 +304,10 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 	}
 
 	err = arch_dup_task_struct(tsk, orig);
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+    tsk->ubi_read=0;
+    tsk->ubifs_read=0;
+#endif
 
 	/*
 	 * We defer looking at err, because we will need this setup

@@ -1,0 +1,124 @@
+/**
+ * @file d4_codec_nlc_regs.h
+ * @brief  DRIMe4 CODEC NLC Register Define for Device Driver
+ * @author JinHyoung An <jh0913.an@samsung.com>
+ * 2011 Samsung Electronics
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+#ifndef __D4_CODEC_NLC_REGS_H__
+#define __D4_CODEC_NLC_REGS_H__
+
+#include <mach/d4_reg_macro.h>
+
+/******************************************************************************/
+/*					CODEC ENCODER REGISTER OFFSET 							   */
+/******************************************************************************/
+
+#define CODEC_NLC_ENC_COMP0_TILE_HEIGHT		0x00
+#define CODEC_NLC_ENC_COMP0_ADDROFFSET		0x08
+#define CODEC_NLC_ENC_COMP0_RATE_CTRL_0		0x0C
+#define CODEC_NLC_ENC_COMP0_RATE_CTRL_1		0x10
+#define CODEC_NLC_ENC_COMP0_RATE_CTRL_2		0x14
+
+#define CODEC_NLC_ENC_COMP1_TILE_HEIGHT		0x20
+#define CODEC_NLC_ENC_COMP1_ADDROFFSET		0x28
+#define CODEC_NLC_ENC_COMP1_RATE_CTRL_0		0x2C
+#define CODEC_NLC_ENC_COMP1_RATE_CTRL_1		0x30
+#define CODEC_NLC_ENC_COMP1_RATE_CTRL_2		0x34
+
+#define CODEC_NLC_ENC_MISC_FMT					0x18
+#define CODEC_NLC_ENC_MISC_BURSTLEN_RST		0x1C
+
+#define CODEC_NLC_ENC_COMP0_DEBUG_40			0x40
+#define CODEC_NLC_ENC_COMP0_DEBUG_44			0x44
+#define CODEC_NLC_ENC_COMP0_DEBUG_48			0x48
+#define CODEC_NLC_ENC_COMP0_DEBUG_4C			0x4C
+#define CODEC_NLC_ENC_COMP0_DEBUG_50			0x50
+#define CODEC_NLC_ENC_COMP0_DEBUG_54			0x54
+#define CODEC_NLC_ENC_COMP0_DEBUG_58			0x58
+#define CODEC_NLC_ENC_COMP0_DEBUG_5C			0x5C
+#define CODEC_NLC_ENC_COMP0_DEBUG_60			0x60
+#define CODEC_NLC_ENC_COMP0_DEBUG_64			0x64
+#define CODEC_NLC_ENC_COMP0_DEBUG_68			0x68
+#define CODEC_NLC_ENC_COMP0_DEBUG_6C			0x6C
+#define CODEC_NLC_ENC_COMP0_DEBUG_70			0x70
+#define CODEC_NLC_ENC_COMP0_DEBUG_74			0x74
+#define CODEC_NLC_ENC_COMP0_DEBUG_78			0x78
+#define CODEC_NLC_ENC_COMP0_DEBUG_7C			0x7C
+#define CODEC_NLC_ENC_COMP0_DEBUG_80			0x80
+#define CODEC_NLC_ENC_COMP0_DEBUG_84			0x84
+#define CODEC_NLC_ENC_COMP0_DEBUG_88			0x88
+
+#define CODEC_NLC_ENC_COMP1_DEBUG_90			0x90
+#define CODEC_NLC_ENC_COMP1_DEBUG_94			0x94
+#define CODEC_NLC_ENC_COMP1_DEBUG_98			0x98
+#define CODEC_NLC_ENC_COMP1_DEBUG_9C			0x9C
+#define CODEC_NLC_ENC_COMP1_DEBUG_A0			0xA0
+#define CODEC_NLC_ENC_COMP1_DEBUG_A4			0xA4
+#define CODEC_NLC_ENC_COMP1_DEBUG_A8			0xA8
+#define CODEC_NLC_ENC_COMP1_DEBUG_AC			0xAC
+#define CODEC_NLC_ENC_COMP1_DEBUG_B0			0xB0
+#define CODEC_NLC_ENC_COMP1_DEBUG_B4			0xB4
+#define CODEC_NLC_ENC_COMP1_DEBUG_B8			0xB8
+#define CODEC_NLC_ENC_COMP1_DEBUG_BC			0xBC
+#define CODEC_NLC_ENC_COMP1_DEBUG_C0			0xC0
+#define CODEC_NLC_ENC_COMP1_DEBUG_C4			0xC4
+#define CODEC_NLC_ENC_COMP1_DEBUG_C8			0xC8
+#define CODEC_NLC_ENC_COMP1_DEBUG_CC			0xCC
+#define CODEC_NLC_ENC_COMP1_DEBUG_D0			0xD0
+#define CODEC_NLC_ENC_COMP1_DEBUG_D4			0xD4
+#define CODEC_NLC_ENC_COMP1_DEBUG_D8			0xD8
+
+#define D4_CODEC_NLC_ENC_COMP0_HEIGHT(val, x)								SET_REGISTER_VALUE(val, x, 0, 11) /* Height */
+#define D4_CODEC_NLC_ENC_COMP0_NUMTILEm1(val, x) 						SET_REGISTER_VALUE(val, x, 16, 5) /* NUMTILEm1 */
+#define D4_CODEC_NLC_ENC_COMP0_MAX_BUFSIZE(val, x) 						SET_REGISTER_VALUE(val, x, 24, 8) /* MAX_BUFSIZE */
+
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_0_SBLEV_TH(val, x)			SET_REGISTER_VALUE(val, x, 0, 8)
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_0_BUFCHK_TH(val, x) 			SET_REGISTER_VALUE(val, x, 8, 8)
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_0_RC_OFF(val, x) 				SET_REGISTER_VALUE(val, x, 16, 1)
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_0_RC_OFF_EB(val, x) 			SET_REGISTER_VALUE(val, x, 20, 6)
+
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_1_BYTE_PER_LINE(val, x)		SET_REGISTER_VALUE(val, x, 0, 12)
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_1_RC_STRT_LINE(val, x) 		SET_REGISTER_VALUE(val, x, 16, 11)
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_1_RC_FREQ_LINE(val, x) 		SET_REGISTER_VALUE(val, x, 28, 4)
+
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_2_ERR_TERM1(val, x)			SET_REGISTER_VALUE(val, x, 0, 19)
+#define D4_CODEC_NLC_ENC_COMP0_RATE_CTRL_2_ERR_TERM2(val, x) 			SET_REGISTER_VALUE(val, x, 20, 12)
+
+#define D4_CODEC_NLC_ENC_COMP1_HEIGHT(val, x)								SET_REGISTER_VALUE(val, x, 0, 11) /* Height */
+#define D4_CODEC_NLC_ENC_COMP1_NUMTILEm1(val, x) 						SET_REGISTER_VALUE(val, x, 16, 5) /* NUMTILEm1 */
+#define D4_CODEC_NLC_ENC_COMP1_MAX_BUFSIZE(val, x) 						SET_REGISTER_VALUE(val, x, 24, 8) /* MAX_BUFSIZE */
+
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_0_SBLEV_TH(val, x)			SET_REGISTER_VALUE(val, x, 0, 8)
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_0_BUFCHK_TH(val, x) 			SET_REGISTER_VALUE(val, x, 8, 8)
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_0_RC_OFF(val, x) 				SET_REGISTER_VALUE(val, x, 16, 1)
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_0_RC_OFF_EB(val, x) 			SET_REGISTER_VALUE(val, x, 20, 6)
+
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_1_BYTE_PER_LINE(val, x)		SET_REGISTER_VALUE(val, x, 0, 12)
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_1_RC_STRT_LINE(val, x) 		SET_REGISTER_VALUE(val, x, 16, 11)
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_1_RC_FREQ_LINE(val, x) 		SET_REGISTER_VALUE(val, x, 28, 4)
+
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_2_ERR_TERM1(val, x)			SET_REGISTER_VALUE(val, x, 0, 19)
+#define D4_CODEC_NLC_ENC_COMP1_RATE_CTRL_2_ERR_TERM2(val, x) 			SET_REGISTER_VALUE(val, x, 20, 12)
+
+#define D4_CODEC_NLC_DEC_COMP0_HEIGHT(val, x)				SET_REGISTER_VALUE(val, x, 0, 11) /* Height */
+#define D4_CODEC_NLC_DEC_COMP0_NUMTILEm1(val, x) 		SET_REGISTER_VALUE(val, x, 16, 5) /* NUMTILEm1 */
+#define D4_CODEC_NLC_DEC_COMP0_MAX_BUFSIZE(val, x) 		SET_REGISTER_VALUE(val, x, 24, 8) /* MAX_BUFSIZE */
+
+#define D4_CODEC_NLC_DEC_COMP0_SBLEV_TH(val, x) 			SET_REGISTER_VALUE(val, x, 0, 8) /* SBLEV_TH */
+#define D4_CODEC_NLC_DEC_COMP0_BUFCHK_TH(val, x) 		SET_REGISTER_VALUE(val, x, 8, 8) /* BUFCHK_TH */
+
+#define D4_CODEC_NLC_DEC_COMP1_HEIGHT(val, x)				SET_REGISTER_VALUE(val, x, 0, 11) /* Height */
+#define D4_CODEC_NLC_DEC_COMP1_NUMTILEm1(val, x) 		SET_REGISTER_VALUE(val, x, 16, 5) /* NUMTILEm1 */
+#define D4_CODEC_NLC_DEC_COMP1_MAX_BUFSIZE(val, x) 		SET_REGISTER_VALUE(val, x, 24, 8) /* MAX_BUFSIZE */
+
+#define D4_CODEC_NLC_DEC_COMP1_SBLEV_TH(val, x) 			SET_REGISTER_VALUE(val, x, 0, 8) /* SBLEV_TH */
+#define D4_CODEC_NLC_DEC_COMP1_BUFCHK_TH(val, x) 		SET_REGISTER_VALUE(val, x, 8, 8) /* BUFCHK_TH */
+
+
+
+#endif /* __D4_CODEC_NLC_REGS_H__ */
+

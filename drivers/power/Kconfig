@@ -309,6 +309,12 @@ config AB8500_BATTERY_THERM_ON_BATCTRL
 	help
 	  Say Y to enable battery temperature measurements using
 	  thermistor connected on BATCTRL ADC.
+	  
+config BATTERY_DRIME_ADC
+	tristate "Battery driver for Samsung Drime Chip ADC based monitoring"
+	help
+	  Say Y here to enable support for adc based battery driver of Samsung DRIMe series chip
+  
 endif # POWER_SUPPLY
 
 source "drivers/power/avs/Kconfig"

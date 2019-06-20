@@ -169,6 +169,11 @@ config GPIO_PL061
 	help
 	  Say yes here to support the PrimeCell PL061 GPIO device
 
+config UGPIO_DD
+        tristate "DRIME4 UGPIO"
+        depends on UDD_GROUP
+
+
 config GPIO_PXA
 	bool "PXA GPIO support"
 	depends on ARCH_PXA || ARCH_MMP

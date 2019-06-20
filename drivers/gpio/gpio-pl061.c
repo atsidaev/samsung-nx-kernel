@@ -12,6 +12,7 @@
 #include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <linux/module.h>
+#include <linux/list.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/irq.h>
@@ -48,6 +49,13 @@ struct pl061_context_save_regs {
 #endif
 
 struct pl061_gpio {
+	/* We use a list of pl061_gpio structs for each trigger IRQ in the main
+	 * interrupts controller of the system. We need this to support systems
+	 * in which more that one PL061s are connected to the same IRQ. The ISR
+	 * interates through this list to find the source of the interrupt.
+	 */
+	struct list_head	list;
+
 	/* Each of the two spinlocks protects a different set of hardware
 	 * regiters and data structurs. This decouples the code of the IRQ from
 	 * the GPIO code. This also makes the case of a GPIO routine call from
@@ -180,20 +188,26 @@ static int pl061_irq_type(struct irq_data *d, unsigned trigger)
 
 static void pl061_irq_handler(unsigned irq, struct irq_desc *desc)
 {
-	unsigned long pending;
-	int offset;
-	struct pl061_gpio *chip = irq_desc_get_handler_data(desc);
+	struct list_head *chip_list = irq_get_handler_data(irq);
+	struct list_head *ptr;
+	struct pl061_gpio *chip;
 	struct irq_chip *irqchip = irq_desc_get_chip(desc);
 
 	chained_irq_enter(irqchip, desc);
+	list_for_each(ptr, chip_list) {
+		unsigned long pending;
+		int offset;
 
-	pending = readb(chip->base + GPIOMIS);
-	writeb(pending, chip->base + GPIOIC);
-	if (pending) {
+		chip = list_entry(ptr, struct pl061_gpio, list);
+		pending = readb(chip->base + GPIOMIS);
+		writeb(pending, chip->base + GPIOIC);
+
+		if (pending == 0)
+			continue;
+
 		for_each_set_bit(offset, &pending, PL061_GPIO_NR)
 			generic_handle_irq(pl061_to_irq(&chip->gc, offset));
 	}
-
 	chained_irq_exit(irqchip, desc);
 }
 
@@ -220,7 +234,9 @@ static int pl061_probe(struct amba_device *dev, const struct amba_id *id)
 {
 	struct pl061_platform_data *pdata;
 	struct pl061_gpio *chip;
+	struct list_head *chip_list;
 	int ret, irq, i;
+	static DECLARE_BITMAP(init_irq, NR_IRQS);
 
 	chip = kzalloc(sizeof(*chip), GFP_KERNEL);
 	if (chip == NULL)
@@ -251,6 +267,7 @@ static int pl061_probe(struct amba_device *dev, const struct amba_id *id)
 	}
 
 	spin_lock_init(&chip->lock);
+	INIT_LIST_HEAD(&chip->list);
 
 	chip->gc.direction_input = pl061_direction_input;
 	chip->gc.direction_output = pl061_direction_output;
@@ -282,7 +299,18 @@ static int pl061_probe(struct amba_device *dev, const struct amba_id *id)
 		goto iounmap;
 	}
 	irq_set_chained_handler(irq, pl061_irq_handler);
-	irq_set_handler_data(irq, chip);
+	if (!test_and_set_bit(irq, init_irq)) { /* list initialized? */
+		chip_list = kmalloc(sizeof(*chip_list), GFP_KERNEL);
+		if (chip_list == NULL) {
+			clear_bit(irq, init_irq);
+			ret = -ENOMEM;
+			goto iounmap;
+		}
+		INIT_LIST_HEAD(chip_list);
+		irq_set_handler_data(irq, chip_list);
+	} else
+		chip_list = irq_get_handler_data(irq);
+	list_add(&chip->list, chip_list);
 
 	for (i = 0; i < PL061_GPIO_NR; i++) {
 		if (pdata) {
@@ -385,7 +413,11 @@ static int __init pl061_gpio_init(void)
 {
 	return amba_driver_register(&pl061_gpio_driver);
 }
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(pl061_gpio_init);
+#else
+fast_subsys_initcall(pl061_gpio_init);
+#endif
 
 MODULE_AUTHOR("Baruch Siach <baruch@tkos.co.il>");
 MODULE_DESCRIPTION("PL061 GPIO driver");

@@ -7,6 +7,14 @@ config SUSPEND
 	  powered and thus its contents are preserved, such as the
 	  suspend-to-RAM state (e.g. the ACPI S3 state).
 
+if SUSPEND
+config SCORE_SUSPEND
+	bool "Suspend to RAM implementation by S-CORE"
+	default y
+	help
+		.
+endif
+
 config SUSPEND_FREEZER
 	bool "Enable freezer for suspend to RAM/standby" \
 		if ARCH_WANTS_FREEZER_CONTROL || BROKEN
@@ -66,6 +74,61 @@ config HIBERNATION
 
 	  For more information take a look at <file:Documentation/power/swsusp.txt>.
 
+if HIBERNATION
+config HIB_SWAP_OUT
+    bool "Enable Swap-out during full page reclaiming"
+    default y
+    help
+        Swap-out can be used to reduce snapshot image for booting.
+        This option enable swap-out during full page reclaiming.
+        .
+
+config SWSUSP_HEADER_IMAGE_TAIL
+    bool "Image tail member of swsusp_header in snapshot for fast-boot(S-CORE)"
+    default y
+    help
+        Image tail member is added to swsusp_header in snapshot.
+        It points image tail page in snapshot.
+        .
+
+config SCORE_FAST_BOOT
+    bool "Changes for fast-boot(S-CORE)"
+    default y
+    help
+        .
+
+config SCORE_TEST
+	bool "Test for fast-boot(S-CORE)"
+	default n
+	help
+		.
+config SCORE_SNAPSHOT_DEBUG
+	bool "Print snapshot information for fast-boot debugging (S-CORE:not work)"
+	default n
+	depends on SCORE_TEST
+	help
+		.
+
+config SCORE_FAST_RESUME
+    bool "Patches for calling software_resume() earlier(S-CORE)"
+    default y
+    help
+        .
+
+config BOOTLOADER_SNAPSHOT
+    bool "Snapshot boot is done by bootloader(S-CORE)"
+    default y
+    help
+        This is basic configuration for bootloader snapshot boot.
+
+config SNAPSHOT_LED_ONOFF
+    bool "LEDs are blinking while snapshot image is created(S-CORE)"
+    default n
+    help
+        During cold boot, LEDs blink.
+
+endif
+
 config ARCH_SAVE_PAGE_KEYS
 	bool
 
@@ -90,6 +153,29 @@ config PM_STD_PARTITION
 	  Note there is currently not a way to specify which device to save the
 	  suspended image to. It will simply pick the first available swap 
 	  device.
+
+config PM_SCORE_EXTENDED_SNAPSHOT
+	bool "Extended snapshot for fast boot optimization"
+	depends on HIBERNATION
+    default n
+	---help---
+        This is for fast boot optimization.
+        User application must be ready for this feature.
+
+config PM_SCORE_EXTENDED_SNAPSHOT_FAKE
+	bool "fake code : free page from fixed CMA region for extended snapshot"
+	depends on PM_SCORE_EXTENDED_SNAPSHOT
+    default y
+	---help---
+        This is tempoary code for development and test.
+
+config PM_SCORE_STD_SUB_PARTITION
+	string "Default resume sub-partition"
+	depends on PM_SCORE_EXTENDED_SNAPSHOT
+	default ""
+	---help---
+	  The default resume sub-partition is the partition that saves page cache list
+	  for fast boot optimization.
 
 config PM_SLEEP
 	def_bool y

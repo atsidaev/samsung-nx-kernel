@@ -125,6 +125,7 @@ int mmc_io_rw_extended(struct mmc_card *card, int write, unsigned fn,
 	struct mmc_command cmd = {0};
 	struct mmc_data data = {0};
 	struct scatterlist sg;
+	int retries = 0;
 
 	BUG_ON(!card);
 	BUG_ON(fn > 7);
@@ -134,6 +135,7 @@ int mmc_io_rw_extended(struct mmc_card *card, int write, unsigned fn,
 	if (addr & ~0x1FFFF)
 		return -EINVAL;
 
+retry:
 	mrq.cmd = &cmd;
 	mrq.data = &data;
 
@@ -161,10 +163,18 @@ int mmc_io_rw_extended(struct mmc_card *card, int write, unsigned fn,
 
 	mmc_wait_for_req(card->host, &mrq);
 
-	if (cmd.error)
+	if (cmd.error) {
+		if (retries < 10) {
+			retries++;
+			goto retry;
+		}
+		pr_err("cmd.error %x", cmd.error);
 		return cmd.error;
-	if (data.error)
+	}
+	if (data.error) {
+		pr_err("data.error %x", data.error);
 		return data.error;
+	}
 
 	if (mmc_host_is_spi(card->host)) {
 		/* host driver already reported errors */

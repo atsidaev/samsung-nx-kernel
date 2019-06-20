@@ -229,7 +229,11 @@ static void __exit leds_exit(void)
 	class_destroy(leds_class);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(leds_init);
+#else
+fast_subsys_initcall(leds_init);
+#endif
 module_exit(leds_exit);
 
 MODULE_AUTHOR("John Lenz, Richard Purdie");

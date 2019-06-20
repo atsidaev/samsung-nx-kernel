@@ -297,11 +297,13 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 	if (page_count(page) != expected_count ||
 		radix_tree_deref_slot_protected(pslot, &mapping->tree_lock) != page) {
 		spin_unlock_irq(&mapping->tree_lock);
+		pr_emerg("migrate error by E\n");
 		return -EAGAIN;
 	}
 
 	if (!page_freeze_refs(page, expected_count)) {
 		spin_unlock_irq(&mapping->tree_lock);
+		pr_emerg(KERN_EMERG"migrate error by F\n");
 		return -EAGAIN;
 	}
 
@@ -316,6 +318,7 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 			!buffer_migrate_lock_buffers(head, mode)) {
 		page_unfreeze_refs(page, expected_count);
 		spin_unlock_irq(&mapping->tree_lock);
+		pr_emerg(KERN_EMERG"migrate error by G\n");
 		return -EAGAIN;
 	}
 
@@ -571,9 +574,11 @@ static int writeout(struct address_space *mapping, struct page *page)
 		/* No write method for the address space */
 		return -EINVAL;
 
-	if (!clear_page_dirty_for_io(page))
+	if (!clear_page_dirty_for_io(page)) {
 		/* Someone else already triggered a write */
+		pr_emerg(KERN_EMERG"migrate  error by A\n");
 		return -EAGAIN;
+	}
 
 	/*
 	 * A dirty page may imply that the underlying filesystem has
@@ -590,6 +595,9 @@ static int writeout(struct address_space *mapping, struct page *page)
 	if (rc != AOP_WRITEPAGE_ACTIVATE)
 		/* unlocked. Relock */
 		lock_page(page);
+
+	if (rc >= 0)
+		pr_emerg(KERN_EMERG"migrate error by C\n");
 
 	return (rc < 0) ? -EIO : -EAGAIN;
 }
@@ -612,8 +620,10 @@ static int fallback_migrate_page(struct address_space *mapping,
 	 * We must have no buffers or drop them.
 	 */
 	if (page_has_private(page) &&
-	    !try_to_release_page(page, GFP_KERNEL))
+	    !try_to_release_page(page, GFP_KERNEL)) {
+		pr_emerg(KERN_EMERG"migrate error by B\n");
 		return -EAGAIN;
+	}
 
 	return migrate_page(mapping, newpage, page, mode);
 }
@@ -651,7 +661,8 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 
 	mapping = page_mapping(page);
 	if (!mapping)
-		rc = migrate_page(mapping, newpage, page, mode);
+		rc = migrate_page(mapping, newpage, page, mode);	
+
 	else if (mapping->a_ops->migratepage)
 		/*
 		 * Most pages have a mapping and most filesystems provide a
@@ -665,6 +676,8 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 		rc = fallback_migrate_page(mapping, newpage, page, mode);
 
 	if (rc) {
+		pr_emerg(KERN_EMERG"%s : migratepage fail ret = %d, unmap page = %x, new page = %x\n",
+			__func__, rc, page_to_phys(page), page_to_phys(newpage));
 		newpage->mapping = NULL;
 	} else {
 		if (remap_swapcache)
@@ -821,6 +834,7 @@ skip_unmap:
 uncharge:
 	if (!charge)
 		mem_cgroup_end_migration(mem, page, newpage, rc == 0);
+
 unlock:
 	unlock_page(page);
 out:
@@ -989,7 +1003,6 @@ int migrate_pages(struct list_head *from,
 			rc = unmap_and_move(get_new_page, private,
 						page, pass > 2, offlining,
 						mode);
-
 			switch(rc) {
 			case -ENOMEM:
 				goto out;

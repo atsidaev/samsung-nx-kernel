@@ -59,7 +59,7 @@ static DEFINE_MUTEX(misc_mtx);
 /*
  * Assigned numbers, used for dynamic minors
  */
-#define DYNAMIC_MINORS 64 /* like dynamic majors */
+#define DYNAMIC_MINORS 128 /* like dynamic majors */
 static DECLARE_BITMAP(misc_minors, DYNAMIC_MINORS);
 
 #ifdef CONFIG_PROC_FS
@@ -294,4 +294,9 @@ fail_remove:
 	remove_proc_entry("misc", NULL);
 	return err;
 }
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(misc_init);
+#else
+fast_subsys_initcall(misc_init);
+#endif
+

@@ -35,6 +35,13 @@ enum {
 	EVENT_XFER_ERROR
 };
 
+enum {
+	PHASE_SHIFT_0	= 0,
+	PHASE_SHIFT_90	= 1,
+	PHASE_SHIFT_180	= 2,
+	PHASE_SHIFT_270	= 3,
+};
+
 struct mmc_data;
 
 /**
@@ -114,8 +121,13 @@ struct mmc_data;
  * bytes_xfered field of @data must be written. This is ensured by
  * using barriers.
  */
+#define DW_USE_WORKQUEUE
+
 struct dw_mci {
 	spinlock_t		lock;
+#ifdef DW_USE_WORKQUEUE
+	struct mutex			mmc_mutex;
+#endif
 	void __iomem		*regs;
 
 	struct scatterlist	*sg;
@@ -143,8 +155,13 @@ struct dw_mci {
 	u32			data_status;
 	u32			stop_cmdr;
 	u32			dir_status;
+#ifndef DW_USE_WORKQUEUE
 	struct tasklet_struct	tasklet;
+#endif
 	struct work_struct	card_work;
+#ifdef DW_USE_WORKQUEUE
+	struct work_struct card_work_ex;
+#endif
 	unsigned long		pending_events;
 	unsigned long		completed_events;
 	enum dw_mci_state	state;
@@ -156,6 +173,7 @@ struct dw_mci {
 	u32			fifoth_val;
 	u16			verid;
 	u16			data_offset;
+	bool		use_hold_reg;
 	struct device		dev;
 	struct dw_mci_board	*pdata;
 	struct dw_mci_slot	*slot[MAX_MCI_SLOTS];
@@ -179,6 +197,7 @@ struct dw_mci {
 	struct regulator	*vmmc;	/* Power regulator */
 	unsigned long		irq_flags; /* IRQ flags */
 	unsigned int		irq;
+	struct clk		*clk;
 };
 
 /* DMA ops for Internal/External DMAC interface */
@@ -201,6 +220,10 @@ struct dw_mci_dma_ops {
 #define DW_MCI_QUIRK_HIGHSPEED			BIT(2)
 /* Unreliable card detection */
 #define DW_MCI_QUIRK_BROKEN_CARD_DETECTION	BIT(3)
+/* Presetting board power for stablity */
+#define DW_MCI_PRESET_BOARD_POWER		BIT(4)
+/* At the DRIMe4, we need delay during uhs-1 card initialization */
+#define DW_MCI_QUIRK_DELAY_BEFORE_CMD6		BIT(5)
 
 
 struct dma_pdata;
@@ -228,6 +251,7 @@ struct dw_mci_board {
 	 * it.
 	 */
 	unsigned int fifo_depth;
+	unsigned int fifo_trans_value;
 
 	/* delay in mS before detecting cards after interrupt */
 	u32 detect_delay_ms;
@@ -243,12 +267,46 @@ struct dw_mci_board {
 	 * in linux/mmc/host.h file.
 	 */
 	void (*setpower)(u32 slot_id, u32 volt);
-	void (*exit)(u32 slot_id);
+	void (*exit)(u32 slot_id, void *);
 	void (*select_slot)(u32 slot_id);
+	void (*set_clk)(struct dw_mci *host, u8 timing);
+	void (*set_clk_phase)(u32 slot_id, u8 timing);
+	void (*tune_sample_phase)(u32 slot_id, u32 index);
 
 	struct dw_mci_dma_ops *dma_ops;
 	struct dma_pdata *data;
 	struct block_settings *blk_settings;
+};
+
+/**
+ * struct dw_mci_slot - MMC slot state
+ * @mmc: The mmc_host representing this slot.
+ * @host: The MMC controller this slot is using.
+ * @ctype: Card type for this slot.
+ * @mrq: mmc_request currently being processed or waiting to be
+ *	processed, or NULL when the slot is idle.
+ * @queue_node: List node for placing this node in the @queue list of
+ *	&struct dw_mci.
+ * @clock: Clock rate configured by set_ios(). Protected by host->lock.
+ * @flags: Random state bits associated with the slot.
+ * @id: Number of this slot.
+ * @last_detect_state: Most recently observed card detect state.
+ */
+struct dw_mci_slot {
+	struct mmc_host		*mmc;
+	struct dw_mci		*host;
+
+	u32			ctype;
+
+	struct mmc_request	*mrq;
+	struct list_head	queue_node;
+
+	unsigned int		clock;
+	unsigned long		flags;
+#define DW_MMC_CARD_PRESENT	0
+#define DW_MMC_CARD_NEED_INIT	1
+	int			id;
+	int			last_detect_state;
 };
 
 #endif /* LINUX_MMC_DW_MMC_H */

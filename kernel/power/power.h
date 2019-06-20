@@ -3,6 +3,10 @@
 #include <linux/utsname.h>
 #include <linux/freezer.h>
 
+#define EXSTATE_NORMAL      0
+#define EXSTATE_SS_BOOT     1
+#define EXSTATE_EXSS_BOOT   2
+
 struct swsusp_info {
 	struct new_utsname	uts;
 	u32			version_code;
@@ -173,6 +177,27 @@ struct timeval;
 /* kernel/power/swsusp.c */
 extern void swsusp_show_speed(struct timeval *, struct timeval *,
 				unsigned int, char *);
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+extern int bio_write_page(struct block_device *bdev, pgoff_t page_off, void *addr, struct bio **bio_chain);
+extern int bio_read_page(struct block_device *bdev, pgoff_t page_off, void *addr, struct bio **bio_chain);
+#endif
+
+/* kernel/power/swap.c */
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+extern void clear_snapshot(void);
+#endif
+
+/* kernel/power/extended_snapshot.c */
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+int snapshot_readahead(void);
+int record_page_list(void);
+void set_exdata_used_flag(void);
+void clear_exdata_used_flag(void);
+void set_snapshot_boot_info(void);
+#else
+#define clear_exdata_used_flag()
+#define set_snapshot_boot_info()
+#endif
 
 #ifdef CONFIG_SUSPEND
 /* kernel/power/suspend.c */
@@ -294,3 +319,63 @@ extern int pm_wake_lock(const char *buf);
 extern int pm_wake_unlock(const char *buf);
 
 #endif /* !CONFIG_PM_WAKELOCKS */
+#ifdef CONFIG_SCORE_TEST
+
+#ifdef CONFIG_DRIME4_REAL_BOARD
+
+#if 0
+#define SCORE_GPIO_INIT() do {    \
+*(volatile unsigned int *)0xf8048400 = *(volatile unsigned int *)0xf8048400 | 0x01;\
+} while ( 0 )
+                            /* GPIO24-port0 */
+#define SCORE_GPIO_ON()     *(volatile unsigned int *)0xf8048004 = 0x01
+#define SCORE_GPIO_OFF()    *(volatile unsigned int *)0xf8048004 = 0x00
+#else   /* now use GPIO24-port4 */
+#define SCORE_GPIO_INIT() do {    \
+*(volatile unsigned int *)0xf8048400 = *(volatile unsigned int *)0xf8048400 | 0x10;\
+} while ( 0 )
+                            /* GPIO24-port4 */
+#define SCORE_GPIO_ON()     *(volatile unsigned int *)0xf8048040 = 0x10
+#define SCORE_GPIO_OFF()    *(volatile unsigned int *)0xf8048040 = 0x00
+#endif
+
+#else   /* CONFIG_DRIME4_REAL_BOARD */
+#define SCORE_GPIO_INIT()   *(volatile unsigned int *)0xf8047400 = 0x04;
+                            /* GPIO23-port2 */
+#define SCORE_GPIO_ON()     *(volatile unsigned int *)0xf8047010 = 0x04;
+#define SCORE_GPIO_OFF()    *(volatile unsigned int *)0xf8047010 = 0x00;
+#endif  /* CONFIG_DRIME4_REAL_BOARD */
+
+#define SCORE_TIME_CHECK_INIT()           SCORE_GPIO_INIT()
+
+#define SCORE_TIME_CHECK_AFTER_HIB(n)    SCORE_TIME_CHECK_AFTER_HIB_##n()
+#define SCORE_TIME_CHECK_AFTER_HIB_0()    do {  \
+    SCORE_GPIO_INIT();                          \
+    SCORE_GPIO_ON();                            \
+} while ( 0 )
+#define SCORE_TIME_CHECK_AFTER_HIB_1()    SCORE_GPIO_OFF()
+#define SCORE_TIME_CHECK_AFTER_HIB_2()    SCORE_GPIO_ON()
+
+#define SCORE_TIME_CHECK_BEFORE_HIB(n)    SCORE_TIME_CHECK_BEFORE_HIB_##n()
+#define SCORE_TIME_CHECK_BEFORE_HIB_0()    do { \
+    SCORE_GPIO_INIT();                          \
+    SCORE_GPIO_ON();                            \
+} while ( 0 )
+#define SCORE_TIME_CHECK_BEFORE_HIB_1()    SCORE_GPIO_OFF()
+#define SCORE_TIME_CHECK_BEFORE_HIB_2()    SCORE_GPIO_ON()
+#define SCORE_TIME_CHECK_BEFORE_HIB_3()    SCORE_GPIO_OFF()
+#define SCORE_TIME_CHECK_BEFORE_HIB_4()    SCORE_GPIO_ON()
+
+#define SCORE_TIME_CHECK_AFTER_STR(n)    SCORE_TIME_CHECK_AFTER_STR_##n()
+#define SCORE_TIME_CHECK_AFTER_STR_0()    do {  \
+    SCORE_GPIO_INIT();                          \
+    SCORE_GPIO_ON();                            \
+} while ( 0 )
+#define SCORE_TIME_CHECK_AFTER_STR_1()    SCORE_GPIO_OFF()
+#define SCORE_TIME_CHECK_AFTER_STR_2()    SCORE_GPIO_ON()
+
+#else   /* CONFIG_SCORE_TEST */
+#define SCORE_TIME_CHECK_AFTER_HIB(n)
+#define SCORE_TIME_CHECK_BEFORE_HIB(n)
+#define SCORE_TIME_CHECK_AFTER_STR(n)
+#endif /* CONFIG_SCORE_TEST */

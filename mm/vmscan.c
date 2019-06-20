@@ -2881,7 +2881,11 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
 	struct reclaim_state reclaim_state;
 	struct scan_control sc = {
 		.gfp_mask = GFP_HIGHUSER_MOVABLE,
+#ifdef CONFIG_HIB_SWAP_OUT
 		.may_swap = 1,
+#else
+		.may_swap = 0,
+#endif
 		.may_unmap = 1,
 		.may_writepage = 1,
 		.nr_to_reclaim = nr_to_reclaim,

@@ -53,6 +53,10 @@
 /* in ms */
 #define WMI_IMPLICIT_PSTREAM_INACTIVITY_INT 5000
 
+#if 1 /* Matt: 20121218 Adjustive channel dwell time(msec) */
+#define ADJUSTIVE_DWELL_TIME 40
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 /*
  * There are no signed versions of __le16 and __le32, so for a temporary
  * solution come up with our own version. The idea is from fs/ntfs/types.h.
@@ -113,8 +117,6 @@ struct wmi {
 	u8 fat_pipe_exist;
 	struct ath6kl *parent_dev;
 	u8 pwr_mode;
-
-	/* protects fat_pipe_exist and stream_exist_for_ac */
 	spinlock_t lock;
 	enum htc_endpoint_id ep_id;
 	struct sq_threshold_params
@@ -183,9 +185,6 @@ enum wmi_data_hdr_flags {
 
 #define WMI_DATA_HDR_META_MASK      0x7
 #define WMI_DATA_HDR_META_SHIFT     13
-
-#define WMI_DATA_HDR_PAD_BEFORE_DATA_MASK               0xFF
-#define WMI_DATA_HDR_PAD_BEFORE_DATA_SHIFT              0x8
 
 /* Macros for operating on WMI_DATA_HDR (info3) field */
 #define WMI_DATA_HDR_IF_IDX_MASK    0xF
@@ -624,6 +623,10 @@ enum wmi_cmd_id {
 	WMI_SEND_MGMT_CMDID,
 	WMI_BEGIN_SCAN_CMDID,
 
+	WMI_SET_BLACK_LIST,
+	WMI_SET_MCASTRATE,
+
+	WMI_STA_BMISS_ENHANCE_CMDID,
 };
 
 enum wmi_mgmt_frame_type {
@@ -637,7 +640,7 @@ enum wmi_mgmt_frame_type {
 
 enum wmi_ie_field_type {
 	WMI_RSN_IE_CAPB	= 0x1,
-	WMI_IE_FULL	= 0xFF,  /* indicats full IE */
+	WMI_IE_FULL		= 0xFF  /* indicats full IE */
 };
 
 /* WMI_CONNECT_CMDID  */
@@ -960,6 +963,9 @@ enum wmi_bss_filter {
 	/* beacons matching probed ssid */
 	PROBED_SSID_FILTER,
 
+	/* beacons matching matched ssid */
+	MATCHED_SSID_FILTER,
+
 	/* marker only */
 	LAST_BSS_FILTER,
 };
@@ -978,7 +984,7 @@ struct wmi_bss_filter_cmd {
 } __packed;
 
 /* WMI_SET_PROBED_SSID_CMDID */
-#define MAX_PROBED_SSID_INDEX   9
+#define MAX_PROBED_SSIDS   16
 
 enum wmi_ssid_flag {
 	/* disables entry */
@@ -989,10 +995,13 @@ enum wmi_ssid_flag {
 
 	/* probes for any ssid */
 	ANY_SSID_FLAG = 0x02,
+
+	/* match for ssid */
+	MATCH_SSID_FLAG = 0x08,
 };
 
 struct wmi_probed_ssid_cmd {
-	/* 0 to MAX_PROBED_SSID_INDEX */
+	/* 0 to MAX_PROBED_SSIDS - 1 */
 	u8 entry_index;
 
 	/* see, enum wmi_ssid_flg */
@@ -1017,6 +1026,11 @@ struct wmi_bmiss_time_cmd {
 	__le16 num_beacons;
 };
 
+/* WMI_STA_ENHANCE_BMISS_CMDID */
+struct wmi_sta_bmiss_enhance_cmd {
+	u8 enable;
+} __packed;
+
 /* WMI_SET_POWER_MODE_CMDID */
 enum wmi_power_mode {
 	REC_POWER = 0x01,
@@ -1034,7 +1048,7 @@ struct wmi_power_mode_cmd {
  */
 enum power_save_fail_event_policy {
 	SEND_POWER_SAVE_FAIL_EVENT_ALWAYS = 1,
-	IGNORE_PS_FAIL_DURING_SCAN = 2,
+	IGNORE_POWER_SAVE_FAIL_EVENT_DURING_SCAN = 2,
 };
 
 struct wmi_power_params_cmd {
@@ -1046,6 +1060,36 @@ struct wmi_power_params_cmd {
 	__le16 tx_wakeup_policy;
 	__le16 num_tx_to_wakeup;
 	__le16 ps_fail_event_policy;
+} __packed;
+
+/*
+ * Ratemask for below modes should be passed
+ * to WMI_SET_TX_SELECT_RATES_CMDID.
+ * AR6003 has 32 bit mask for each modes.
+ * First 12 bits for legacy rates, 13 to 20
+ * bits for HT 20 rates and 21 to 28 bits for
+ * HT 40 rates
+ */
+enum wmi_mode_phy {
+	WMI_RATES_MODE_11A = 0,
+	WMI_RATES_MODE_11G,
+	WMI_RATES_MODE_11B,
+	WMI_RATES_MODE_11GONLY,
+	WMI_RATES_MODE_11A_HT20,
+	WMI_RATES_MODE_11G_HT20,
+	WMI_RATES_MODE_11A_HT40,
+	WMI_RATES_MODE_11G_HT40,
+	WMI_RATES_MODE_MAX
+};
+
+/* WMI_SET_TX_SELECT_RATES_CMDID */
+struct wmi_set_tx_select_rates32_cmd {
+	__le32 ratemask[WMI_RATES_MODE_MAX];
+} __packed;
+
+/* WMI_SET_TX_SELECT_RATES_CMDID */
+struct wmi_set_tx_select_rates64_cmd {
+	__le64 ratemask[WMI_RATES_MODE_MAX];
 } __packed;
 
 /* WMI_SET_DISC_TIMEOUT_CMDID */
@@ -1156,7 +1200,7 @@ enum wmi_phy_mode {
 	WMI_11G_HT20	= 0x6,
 };
 
-#define WMI_MAX_CHANNELS        32
+#define WMI_MAX_CHANNELS        40
 
 /*
  *  WMI_RSSI_THRESHOLD_PARAMS_CMDID
@@ -1233,7 +1277,7 @@ struct wmi_snr_threshold_params_cmd {
 
 enum wmi_preamble_policy {
 	WMI_IGNORE_BARKER_IN_ERP = 0,
-	WMI_FOLLOW_BARKER_IN_ERP,
+	WMI_DONOT_IGNORE_BARKER_IN_ERP
 };
 
 struct wmi_set_lpreamble_cmd {
@@ -1418,16 +1462,6 @@ struct wmi_ready_event_2 {
 	u8 mac_addr[ETH_ALEN];
 	u8 phy_cap;
 } __packed;
-
-/* WMI_PHY_CAPABILITY */
-enum wmi_phy_cap {
-	WMI_11A_CAP = 0x01,
-	WMI_11G_CAP = 0x02,
-	WMI_11AG_CAP = 0x03,
-	WMI_11AN_CAP = 0x04,
-	WMI_11GN_CAP = 0x05,
-	WMI_11AGN_CAP = 0x06,
-};
 
 /* Connect Event */
 struct wmi_connect_event {
@@ -2192,11 +2226,6 @@ struct wmi_ap_hidden_ssid_cmd {
 	u8 hidden_ssid;
 } __packed;
 
-struct wmi_set_inact_period_cmd {
-	__le32 inact_period;
-	u8 num_null_func;
-} __packed;
-
 /* AP mode events */
 struct wmi_ap_set_apsd_cmd {
 	u8 enable;
@@ -2532,6 +2561,8 @@ int ath6kl_wmi_set_ip_cmd(struct wmi *wmi, u8 if_idx,
 			  __be32 ips0, __be32 ips1);
 int ath6kl_wmi_set_host_sleep_mode_cmd(struct wmi *wmi, u8 if_idx,
 				       enum ath6kl_host_mode host_mode);
+int ath6kl_wmi_set_bitrate_mask(struct wmi *wmi, u8 if_idx,
+				const struct cfg80211_bitrate_mask *mask);
 int ath6kl_wmi_set_wow_mode_cmd(struct wmi *wmi, u8 if_idx,
 				enum ath6kl_wow_mode wow_mode,
 				u32 filter, u16 host_req_delay);
@@ -2547,12 +2578,18 @@ int ath6kl_wmi_set_roam_mode_cmd(struct wmi *wmi, enum wmi_roam_mode mode);
 int ath6kl_wmi_mcast_filter_cmd(struct wmi *wmi, u8 if_idx, bool mc_all_on);
 int ath6kl_wmi_add_del_mcast_filter_cmd(struct wmi *wmi, u8 if_idx,
 					u8 *filter, bool add_filter);
+int ath6kl_wmi_sta_bmiss_enhance_cmd(struct wmi *wmi, u8 if_idx, bool enable);
+
 /* AP mode uAPSD */
 int ath6kl_wmi_ap_set_apsd(struct wmi *wmi, u8 if_idx, u8 enable);
 
 int ath6kl_wmi_set_apsd_bfrd_traf(struct wmi *wmi,
 						u8 if_idx, u16 aid,
 						u16 bitmap, u32 flags);
+
+int ath6kl_wmi_mcast_filter_cmd(struct wmi *wmi, u8 if_idx, bool mc_all_on);
+int ath6kl_wmi_add_del_mcast_filter_cmd(struct wmi *wmi, u8 if_idx,
+					u8 *filter, bool add_filter);
 
 u8 ath6kl_wmi_get_traffic_class(u8 user_priority);
 
@@ -2575,7 +2612,7 @@ int ath6kl_wmi_set_appie_cmd(struct wmi *wmi, u8 if_idx, u8 mgmt_frm_type,
 			     const u8 *ie, u8 ie_len);
 
 int ath6kl_wmi_set_ie_cmd(struct wmi *wmi, u8 if_idx, u8 ie_id, u8 ie_field,
-			  const u8 *ie_info, u8 ie_len);
+			     const u8 *ie_info, u8 ie_len);
 
 /* P2P */
 int ath6kl_wmi_disable_11b_rates_cmd(struct wmi *wmi, bool disable);
@@ -2599,8 +2636,6 @@ int ath6kl_wmi_cancel_remain_on_chnl_cmd(struct wmi *wmi, u8 if_idx);
 
 int ath6kl_wmi_set_appie_cmd(struct wmi *wmi, u8 if_idx, u8 mgmt_frm_type,
 			     const u8 *ie, u8 ie_len);
-
-int ath6kl_wmi_set_inact_period(struct wmi *wmi, u8 if_idx, int inact_timeout);
 
 void ath6kl_wmi_sscan_timer(unsigned long ptr);
 

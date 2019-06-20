@@ -43,6 +43,10 @@
 
 #include <asm/uaccess.h>
 
+#ifdef CONFIG_MMC_DW_SYSFS
+#include <mach/dw_mmc_sysfs.h>
+#endif
+
 #include "queue.h"
 
 MODULE_ALIAS("mmc:block");
@@ -564,9 +568,10 @@ static u32 mmc_sd_num_wr_blocks(struct mmc_card *card)
 	err = mmc_wait_for_cmd(card->host, &cmd, 0);
 	if (err)
 		return (u32)-1;
+/*
 	if (!mmc_host_is_spi(card->host) && !(cmd.resp[0] & R1_APP_CMD))
 		return (u32)-1;
-
+*/
 	memset(&cmd, 0, sizeof(struct mmc_command));
 
 	cmd.opcode = SD_APP_SEND_NUM_WR_BLKS;
@@ -975,6 +980,33 @@ static inline void mmc_apply_rel_rw(struct mmc_blk_request *brq,
 	}
 }
 
+
+static int mmc_blk_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
+			   struct mmc_blk_request *brq, struct request *req,
+			   int ret)
+{
+	/*
+	 * If this is an SD card and we're writing, we can first
+	 * mark the known good sectors as ok.
+	 *
+	 * If the card is not SD, we can still ok written sectors
+	 * as reported by the controller (which might be less than
+	 * the real number of written sectors, but never more).
+	 */
+	if (mmc_card_sd(card)) {
+		u32 blocks;
+
+		blocks = mmc_sd_num_wr_blocks(card);
+		if (blocks != (u32)-1) {
+			ret = blk_end_request(req, 0, blocks << 9);
+		}
+	} else {
+		ret = blk_end_request(req, 0, brq->data.bytes_xfered);
+	}
+	return ret;
+}
+
+
 #define CMD_ERRORS							\
 	(R1_OUT_OF_RANGE |	/* Command argument out of range */	\
 	 R1_ADDRESS_ERROR |	/* Misaligned address */		\
@@ -992,6 +1024,13 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	struct request *req = mq_mrq->req;
 	int ecc_err = 0;
 
+	ecc_err=mmc_sd_num_wr_blocks(card);
+	if(brq->cmd.opcode == MMC_WRITE_MULTIPLE_BLOCK)
+	{
+		if(brq->data.blocks != ecc_err)
+			return MMC_BLK_RETRY;			
+	}
+	
 	/*
 	 * sbc.error indicates a problem with the set block count
 	 * command.  No data will have been transferred.
@@ -1229,31 +1268,6 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	mmc_queue_bounce_pre(mqrq);
 }
 
-static int mmc_blk_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
-			   struct mmc_blk_request *brq, struct request *req,
-			   int ret)
-{
-	/*
-	 * If this is an SD card and we're writing, we can first
-	 * mark the known good sectors as ok.
-	 *
-	 * If the card is not SD, we can still ok written sectors
-	 * as reported by the controller (which might be less than
-	 * the real number of written sectors, but never more).
-	 */
-	if (mmc_card_sd(card)) {
-		u32 blocks;
-
-		blocks = mmc_sd_num_wr_blocks(card);
-		if (blocks != (u32)-1) {
-			ret = blk_end_request(req, 0, blocks << 9);
-		}
-	} else {
-		ret = blk_end_request(req, 0, brq->data.bytes_xfered);
-	}
-	return ret;
-}
-
 static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 {
 	struct mmc_blk_data *md = mq->data;
@@ -1267,6 +1281,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 
 	if (!rqc && !mq->mqrq_prev->req)
 		return 0;
+
 
 	do {
 		if (rqc) {
@@ -1287,6 +1302,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		areq = mmc_start_req(card->host, areq, (int *) &status);
 		if (!areq)
 			return 0;
+
 
 		mq_rq = container_of(areq, struct mmc_queue_req, mmc_active);
 		brq = &mq_rq->brq;
@@ -1323,7 +1339,17 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			goto cmd_abort;
 		case MMC_BLK_RETRY:
 			if (retry++ < 5)
+			{
 				break;
+			}
+			else
+			{
+#ifdef CONFIG_MMC_DW_SYSFS
+				if(card->host)
+					if(card->host->index == 1)
+						g_media_err = 1;
+#endif
+			}
 			/* Fall through */
 		case MMC_BLK_ABORT:
 			if (!mmc_blk_reset(md, card->host, type))
@@ -1376,8 +1402,9 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
  cmd_abort:
 	if (mmc_card_removed(card))
 		req->cmd_flags |= REQ_QUIET;
-	while (ret)
-		ret = blk_end_request(req, -EIO, blk_rq_cur_bytes(req));
+	blk_end_request_all(req, -EIO);
+	//while (ret)
+	//	ret = blk_end_request(req, -EIO, blk_rq_cur_bytes(req));
 
  start_new_req:
 	if (rqc) {

@@ -20,6 +20,15 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
+//#define ENABLE_DEBUG_MSG_FS
+
+#ifdef ENABLE_DEBUG_MSG_FS
+#define DEBUG_FS_MSG(fmt, ...) printk(KERN_EMERG fmt, ##__VA_ARGS__)
+#else
+#define DEBUG_FS_MSG(...)
+#endif
+
+
 const struct file_operations generic_ro_fops = {
 	.llseek		= generic_file_llseek,
 	.read		= do_sync_read,
@@ -131,6 +140,8 @@ EXPORT_SYMBOL(generic_file_llseek_size);
 loff_t generic_file_llseek(struct file *file, loff_t offset, int origin)
 {
 	struct inode *inode = file->f_mapping->host;
+
+	DEBUG_FS_MSG("seek (0x%x, %08d, %d)\n", file, offset, origin);
 
 	return generic_file_llseek_size(file, offset, origin,
 					inode->i_sb->s_maxbytes,
@@ -348,6 +359,8 @@ ssize_t do_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *pp
 	kiocb.ki_left = len;
 	kiocb.ki_nbytes = len;
 
+	//DEBUG_FS_MSG("read (0x%x, %08d, 0x%x)\n", filp, len, buf);
+
 	for (;;) {
 		ret = filp->f_op->aio_read(&kiocb, &iov, 1, kiocb.ki_pos);
 		if (ret != -EIOCBRETRY)
@@ -403,6 +416,8 @@ ssize_t do_sync_write(struct file *filp, const char __user *buf, size_t len, lof
 	kiocb.ki_pos = *ppos;
 	kiocb.ki_left = len;
 	kiocb.ki_nbytes = len;
+
+	DEBUG_FS_MSG("write(0x%x, %08d, 0x%x)\n", filp, len, buf);
 
 	for (;;) {
 		ret = filp->f_op->aio_write(&kiocb, &iov, 1, kiocb.ki_pos);

@@ -200,6 +200,13 @@ extern bool initcall_debug;
 #define postcore_initcall_sync(fn)	__define_initcall("2s",fn,2s)
 #define arch_initcall(fn)		__define_initcall("3",fn,3)
 #define arch_initcall_sync(fn)		__define_initcall("3s",fn,3s)
+#ifdef  CONFIG_SCORE_FAST_RESUME
+#define fast_subsys_initcall(fn)    __define_initcall("fast_subsys",fn,fast_subsys)
+#define fast_fs_initcall(fn)       __define_initcall("fast_fs",fn,fast_fs)
+#define fast_dev_initcall(fn)       __define_initcall("fast_dev",fn,fast_dev)
+#define fast_late_initcall(fn)       __define_initcall("fast_late",fn,fast_late)
+#define resume_initcall(fn)     __define_initcall("resume",fn,resume)
+#endif
 #define subsys_initcall(fn)		__define_initcall("4",fn,4)
 #define subsys_initcall_sync(fn)	__define_initcall("4s",fn,4s)
 #define fs_initcall(fn)			__define_initcall("5",fn,5)

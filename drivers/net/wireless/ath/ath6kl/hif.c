@@ -16,8 +16,6 @@
  */
 #include "hif.h"
 
-#include <linux/export.h>
-
 #include "core.h"
 #include "target.h"
 #include "hif-ops.h"
@@ -62,8 +60,6 @@ int ath6kl_hif_rw_comp_handler(void *context, int status)
 
 	return 0;
 }
-EXPORT_SYMBOL(ath6kl_hif_rw_comp_handler);
-
 #define REG_DUMP_COUNT_AR6003   60
 #define REGISTER_DUMP_LEN_MAX   60
 
@@ -90,7 +86,7 @@ static void ath6kl_hif_dump_fw_crash(struct ath6kl *ar)
 	}
 
 	ath6kl_dbg(ATH6KL_DBG_IRQ, "register dump data address 0x%x\n",
-		   regdump_addr);
+		regdump_addr);
 	regdump_addr = TARG_VTOP(ar->target_type, regdump_addr);
 
 	/* fetch register dump data */
@@ -136,6 +132,7 @@ static int ath6kl_hif_proc_dbg_intr(struct ath6kl_device *dev)
 
 	ath6kl_hif_dump_fw_crash(dev->ar);
 	ath6kl_read_fwlogs(dev->ar);
+	ath6kl_fw_err_notify(dev->ar, ATH6KL_FW_ASSERT);
 
 	return ret;
 }
@@ -285,7 +282,7 @@ static int ath6kl_hif_proc_counter_intr(struct ath6kl_device *dev)
 			     dev->irq_en_reg.cntr_int_status_en;
 
 	ath6kl_dbg(ATH6KL_DBG_IRQ,
-		   "valid interrupt source(s) in COUNTER_INT_STATUS: 0x%x\n",
+		"valid interrupt source(s) in COUNTER_INT_STATUS: 0x%x\n",
 		counter_int_status);
 
 	/*
@@ -360,7 +357,7 @@ static int ath6kl_hif_proc_cpu_intr(struct ath6kl_device *dev)
 	}
 
 	ath6kl_dbg(ATH6KL_DBG_IRQ,
-		   "valid interrupt source(s) in CPU_INT_STATUS: 0x%x\n",
+		"valid interrupt source(s) in CPU_INT_STATUS: 0x%x\n",
 		cpu_int_status);
 
 	/* Clear the interrupt */
@@ -435,8 +432,9 @@ static int proc_pending_irqs(struct ath6kl_device *dev, bool *done)
 		if (status)
 			goto out;
 
-		ath6kl_dump_registers(dev, &dev->irq_proc_reg,
-				      &dev->irq_en_reg);
+		if (AR_DBG_LVL_CHECK(ATH6KL_DBG_IRQ))
+			ath6kl_dump_registers(dev, &dev->irq_proc_reg,
+					 &dev->irq_en_reg);
 
 		/* Update only those registers that are enabled */
 		host_int_status = dev->irq_proc_reg.host_int_status &
@@ -566,7 +564,6 @@ int ath6kl_hif_intr_bh_handler(struct ath6kl *ar)
 
 	return status;
 }
-EXPORT_SYMBOL(ath6kl_hif_intr_bh_handler);
 
 static int ath6kl_hif_enable_intrs(struct ath6kl_device *dev)
 {

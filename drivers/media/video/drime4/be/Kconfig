@@ -1,0 +1,8 @@
+#
+# DSC drivers configurations
+#
+
+config DRIME4_BE
+	tristate "Samsung Drime4 BE driver"
+	help
+		This is a device driver for Samsung Drime IV BayerEngine driver using ioctl.

@@ -588,6 +588,7 @@ static void do_signal(struct pt_regs *regs, int syscall)
 	struct k_sigaction ka;
 	siginfo_t info;
 	int signr;
+	struct timespec ts;
 
 	/*
 	 * If we were from a system call, check for system call restarting...
@@ -625,6 +626,18 @@ static void do_signal(struct pt_regs *regs, int syscall)
 		 * decision to restart the system call.  But skip this if a
 		 * debugger has chosen to restart at a different PC.
 		 */
+
+		/* For debugging... 
+		ktime_get_ts(&ts);
+		printk("[%d.%ld] do_signal %d\n",ts.tv_sec,ts.tv_nsec,signr);
+		if (signr == SIGFPE){
+			printk("Floating point exception\n");
+		}
+		if (signr == SIGABRT){
+			printk("Abort exception\n");
+		}
+		*/
+		
 		if (regs->ARM_pc == restart_addr) {
 			if (retval == -ERESTARTNOHAND
 			    || (retval == -ERESTARTSYS

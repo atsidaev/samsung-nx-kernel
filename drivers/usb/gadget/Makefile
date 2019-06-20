@@ -14,6 +14,7 @@ obj-$(CONFIG_USB_IMX)		+= imx_udc.o
 obj-$(CONFIG_USB_GOKU)		+= goku_udc.o
 obj-$(CONFIG_USB_OMAP)		+= omap_udc.o
 obj-$(CONFIG_USB_S3C2410)	+= s3c2410_udc.o
+obj-$(CONFIG_USB_DRIME4_SS_UDC) += drime4_ss_udc.o
 obj-$(CONFIG_USB_AT91)		+= at91_udc.o
 obj-$(CONFIG_USB_ATMEL_USBA)	+= atmel_usba_udc.o
 obj-$(CONFIG_USB_FSL_USB2)	+= fsl_usb2_udc.o
@@ -71,3 +72,20 @@ obj-$(CONFIG_USB_G_WEBCAM)	+= g_webcam.o
 obj-$(CONFIG_USB_G_NCM)		+= g_ncm.o
 obj-$(CONFIG_USB_G_ACM_MS)	+= g_acm_ms.o
 obj-$(CONFIG_USB_GADGET_TARGET)	+= tcm_usb_gadget.o
+
+#
+# static function enable usb mode (UsbSelMode) by Wonjung Kim (DI)
+#
+obj-$(CONFIG_USB_ANDROID)	+= android.o
+obj-$(CONFIG_USB_ANDROID_ACM)	+= f_acm.o u_serial.o
+obj-$(CONFIG_USB_DUN_SUPPORT)  += serial_acm.o
+obj-$(CONFIG_USB_ANDROID_ADB)	+= f_adb.o
+obj-$(CONFIG_USB_ANDROID_SAMSUNG_SDB)	+= f_sdb.o
+obj-$(CONFIG_USB_ANDROID_MASS_STORAGE)	+= f_mass_storage.o
+#obj-$(CONFIG_USB_ANDROID_MASS_STORAGE)	+= g_mass_storage.o
+obj-$(CONFIG_USB_ANDROID_MTP)	+= f_mtp.o
+obj-$(CONFIG_USB_ANDROID_SAMSUNG_MTP)	+= f_mtp_samsung.o
+obj-$(CONFIG_USB_ANDROID_RNDIS)	+= f_rndis.o u_ether.o
+obj-$(CONFIG_USB_ANDROID_ECM)	+= f_ecm.o f_subset.o u_ether.o
+
+

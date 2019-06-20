@@ -49,6 +49,8 @@
 #include <linux/io.h>
 #include <linux/mtd/partitions.h>
 
+extern int del_mtd_device(struct mtd_info *mtd);
+extern int del_mtd_partitions(struct mtd_info *);
 /* Define default oob placement schemes for large and small page devices */
 static struct nand_ecclayout nand_oob_8 = {
 	.eccbytes = 3,
@@ -3568,7 +3570,9 @@ void nand_release(struct mtd_info *mtd)
 	if (chip->ecc.mode == NAND_ECC_SOFT_BCH)
 		nand_bch_free((struct nand_bch_control *)chip->ecc.priv);
 
-	mtd_device_unregister(mtd);
+        del_mtd_partitions(mtd);
+        /* Deregister the device */
+        del_mtd_device(mtd);
 
 	/* Free bad block table memory */
 	kfree(chip->bbt);
@@ -3593,7 +3597,11 @@ static void __exit nand_base_exit(void)
 	led_trigger_unregister_simple(nand_led_trigger);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 module_init(nand_base_init);
+#else
+fast_dev_initcall(nand_base_init);
+#endif
 module_exit(nand_base_exit);
 
 MODULE_LICENSE("GPL");

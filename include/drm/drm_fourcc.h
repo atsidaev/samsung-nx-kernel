@@ -134,4 +134,7 @@
 /* 3 non contiguous plane YCbCr */
 #define DRM_FORMAT_YUV420M	fourcc_code('Y', 'M', '1', '2') /* 2x2 subsampled Cb (1) and Cr (2) planes */
 
+/* 4 plane Y0Y1C0C1 */
+#define DRM_FORMAT_YYCC		fourcc_code('Y', 'Y', 'C', 'C') /* 2x2 subsampled Cb (1) and Cr (2) planes */
+
 #endif /* DRM_FOURCC_H */

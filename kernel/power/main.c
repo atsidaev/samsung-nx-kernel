@@ -326,6 +326,11 @@ static suspend_state_t decode_state(const char *buf, size_t n)
 	if (len == 4 && !strncmp(buf, "disk", len))
 		return PM_SUSPEND_MAX;
 
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+	if (len == 5 && !strncmp(buf, "extra", len))
+		return PM_SUSPEND_EXTRA;
+#endif
+
 #ifdef CONFIG_SUSPEND
 	for (s = &pm_states[state]; state < PM_SUSPEND_MAX; s++, state++)
 		if (*s && len == strlen(*s) && !strncmp(buf, *s, len))
@@ -349,12 +354,15 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 		error = -EBUSY;
 		goto out;
 	}
-
 	state = decode_state(buf, n);
 	if (state < PM_SUSPEND_MAX)
 		error = pm_suspend(state);
 	else if (state == PM_SUSPEND_MAX)
 		error = hibernate();
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+	else if (state == PM_SUSPEND_EXTRA)
+        error = record_page_list();
+#endif
 	else
 		error = -EINVAL;
 

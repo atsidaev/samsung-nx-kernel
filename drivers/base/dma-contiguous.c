@@ -63,6 +63,11 @@ struct cma *dma_contiguous_default_area;
 static const unsigned long size_bytes = CMA_SIZE_MBYTES * SZ_1M;
 static long size_cmdline = -1;
 
+/*
+ * tempoary debugging global varaible, will be removed after heap area debugging
+ * add by sj.sj.kim
+ */
+
 static int __init early_cma(char *p)
 {
 	pr_debug("%s(%s)\n", __func__, p);
@@ -280,6 +285,15 @@ int __init dma_declare_contiguous(struct device *dev, unsigned long size,
 		}
 	}
 
+#if 0
+#ifdef CONFIG_SCORE_FAST_BOOT
+	{
+		extern void mark_cma_nosave_region(unsigned long start_pfn, unsigned long end_pfn);
+		mark_cma_nosave_region(base >> PAGE_SHIFT, (base + size) >> PAGE_SHIFT);
+	}
+#endif
+#endif
+
 	/*
 	 * Each reserved area must be initialised later, when more kernel
 	 * subsystems (like slab allocator) are available.
@@ -316,15 +330,17 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	unsigned long mask, pfn, pageno, start = 0;
 	struct cma *cma = dev_get_cma_area(dev);
 	int ret;
-
+	
 	if (!cma || !cma->count)
 		return NULL;
 
 	if (align > CONFIG_CMA_ALIGNMENT)
 		align = CONFIG_CMA_ALIGNMENT;
 
+	/*
 	pr_debug("%s(cma %p, count %d, align %d)\n", __func__, (void *)cma,
 		 count, align);
+	*/
 
 	if (!count)
 		return NULL;
@@ -342,6 +358,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 		}
 
 		pfn = cma->base_pfn + pageno;
+
 		ret = alloc_contig_range(pfn, pfn + count, MIGRATE_CMA);
 		if (ret == 0) {
 			bitmap_set(cma->bitmap, pageno, count);
@@ -349,16 +366,21 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 		} else if (ret != -EBUSY) {
 			goto error;
 		}
+
 		pr_debug("%s(): memory range at %p is busy, retrying\n",
 			 __func__, pfn_to_page(pfn));
+
 		/* try again with a bit different memory target */
 		start = pageno + mask + 1;
 	}
-
 	mutex_unlock(&cma_mutex);
 
+	/*
 	pr_debug("%s(): returned %p\n", __func__, pfn_to_page(pfn));
+	*/
+
 	return pfn_to_page(pfn);
+
 error:
 	mutex_unlock(&cma_mutex);
 	return NULL;
@@ -395,6 +417,7 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 	mutex_lock(&cma_mutex);
 	bitmap_clear(cma->bitmap, pfn - cma->base_pfn, count);
 	free_contig_range(pfn, count);
+
 	mutex_unlock(&cma_mutex);
 
 	return true;

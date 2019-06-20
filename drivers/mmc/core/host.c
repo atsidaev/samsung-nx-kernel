@@ -24,8 +24,22 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 
+#ifdef CONFIG_MMC_DW_SYSFS
+#include <mach/dw_mmc_sysfs.h>
+#endif
+
 #include "core.h"
 #include "host.h"
+
+
+extern void check_device();
+extern void stop_device();
+extern void pre_start();
+
+extern int flag;
+extern int flag_cd;
+extern void mmc_change_force(struct mmc_host *host);
+
 
 #define cls_dev_to_mmc_host(d)	container_of(d, struct mmc_host, class_dev)
 
@@ -301,6 +315,8 @@ static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
  *
  *	Initialise the per-host structure.
  */
+static struct mmc_host *_host;
+
 struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 {
 	int err;
@@ -335,7 +351,13 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 
 	spin_lock_init(&host->lock);
 	init_waitqueue_head(&host->wq);
-	INIT_DELAYED_WORK(&host->detect, mmc_rescan);
+	if(host->index == 1)
+	{
+		_host = host;
+		flag_cd = 0;
+	}
+	else
+		INIT_DELAYED_WORK(&host->detect, mmc_rescan);
 #ifdef CONFIG_PM
 	host->pm_notify.notifier_call = mmc_pm_notify;
 #endif
@@ -357,8 +379,34 @@ free:
 	kfree(host);
 	return NULL;
 }
-
 EXPORT_SYMBOL(mmc_alloc_host);
+
+void starter()
+{
+	flag = 1;
+	flag_cd = 1;
+	g_support_card = 0;
+	pre_start();
+	INIT_DELAYED_WORK(&_host->detect, mmc_rescan);
+	check_device();
+}
+EXPORT_SYMBOL(starter);
+
+void stopper()
+{
+	flag = 0;
+	// flag_cd = 0;
+	cancel_delayed_work_sync(&_host->detect);
+
+#if 0
+	_host->detect_change = 1;
+	mmc_change_force(_host);
+
+	stop_device();
+#endif
+}
+
+EXPORT_SYMBOL(stopper);
 
 /**
  *	mmc_add_host - initialise host hardware

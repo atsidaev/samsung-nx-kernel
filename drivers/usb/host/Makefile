@@ -43,3 +43,6 @@ obj-$(CONFIG_USB_OCTEON2_COMMON) += octeon2-common.o
 obj-$(CONFIG_MIPS_ALCHEMY)	+= alchemy-common.o
 obj-$(CONFIG_USB_HCD_BCMA)	+= bcma-hcd.o
 obj-$(CONFIG_USB_HCD_SSB)	+= ssb-hcd.o
+# Samsung OTG/HSIC Support
+#obj-$(CONFIG_DWC_OTG)		+= dwc_otg/
+obj-$(CONFIG_USB_DWCOTG)        += dwc_otg/ dwc_common_port/

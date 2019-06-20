@@ -32,6 +32,14 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 
+#if defined(CONFIG_JACK_MON)
+#include <linux/jack.h>
+#endif
+
+#ifdef CONFIG_MMC_DW_SYSFS
+#include <mach/dw_mmc_sysfs.h>
+#endif
+
 #include "core.h"
 #include "bus.h"
 #include "host.h"
@@ -51,6 +59,10 @@ static const unsigned freqs[] = { 400000, 300000, 200000, 100000 };
  */
 bool use_spi_crc = 1;
 module_param(use_spi_crc, bool, 0);
+
+extern int flag_cd;
+int flag = 1;
+module_param(flag, int, 0);
 
 /*
  * We normally treat cards as removed during suspend if they are not
@@ -267,9 +279,17 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 				  struct mmc_request *mrq)
 {
 	struct mmc_command *cmd;
+	int ret = 0;
+	int timeout;
 
 	while (1) {
-		wait_for_completion(&mrq->completion);
+		timeout = (mrq->data) ? 10*HZ : 2*HZ;
+		ret = wait_for_completion_timeout(&mrq->completion, timeout);
+		if (!ret) {
+			pr_debug("%s: req expired (CMD%u): %d, breaking...\n",
+				mmc_hostname(host), cmd->opcode, cmd->error);
+			break;
+		}
 
 		cmd = mrq->cmd;
 		if (!cmd->error || !cmd->retries ||
@@ -1392,11 +1412,44 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 	WARN_ON(host->removed);
 	spin_unlock_irqrestore(&host->lock, flags);
 #endif
-	host->detect_change = 1;
-	mmc_schedule_delayed_work(&host->detect, delay);
+
+#if defined(CONFIG_JACK_MON)
+	#if defined(CONFIG_MACH_D4_GALAXYNX)
+
+	#else
+		//if (!mmc_card_sdio(host->card))
+		if (host->index == 1)
+		{
+			//if(!mmc_card_removed(host->card))
+			if(host->ops->get_cd(host))
+			{
+				jack_event_handler("mmc", 1);
+				g_protect_card = host->ops->get_ro(host);
+			}
+			else
+			{
+				jack_event_handler("mmc", 0);
+			}
+		}
+	#endif				
+
+#endif				
+
+	if(flag == 1 || host->index == 0)
+	{
+		host->detect_change = 1;
+		mmc_schedule_delayed_work(&host->detect, delay);
+	}
 }
 
 EXPORT_SYMBOL(mmc_detect_change);
+
+void mmc_change_force(struct mmc_host *host)
+{
+	mmc_schedule_delayed_work(&host->detect, 0);
+}
+
+EXPORT_SYMBOL(mmc_change_force);
 
 void mmc_init_erase(struct mmc_card *card)
 {
@@ -1971,16 +2024,20 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	 * if the card is being re-initialized, just send it.  CMD52
 	 * should be ignored by SD/eMMC cards.
 	 */
-	sdio_reset(host);
+	if (host->index == 0)
+		sdio_reset(host);
 	mmc_go_idle(host);
 
 	mmc_send_if_cond(host, host->ocr_avail);
 
 	/* Order's important: probe SDIO, then SD, then MMC */
-	if (!mmc_attach_sdio(host))
-		return 0;
+	/* Nandan: probe SD, then SDIO, then MMC */
 	if (!mmc_attach_sd(host))
 		return 0;
+
+	if (!mmc_attach_sdio(host))
+		return 0;
+
 	if (!mmc_attach_mmc(host))
 		return 0;
 
@@ -1991,6 +2048,12 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 int _mmc_detect_card_removed(struct mmc_host *host)
 {
 	int ret;
+
+
+	if(flag_cd == 0)
+	{
+		return 1;
+	}
 
 	if ((host->caps & MMC_CAP_NONREMOVABLE) || !host->bus_ops->alive)
 		return 0;
@@ -2014,7 +2077,7 @@ int mmc_detect_card_removed(struct mmc_host *host)
 
 	WARN_ON(!host->claimed);
 
-	if (!card)
+	if (!card || (flag_cd == 0) )
 		return 1;
 
 	ret = mmc_card_removed(card);
@@ -2048,10 +2111,21 @@ void mmc_rescan(struct work_struct *work)
 	struct mmc_host *host =
 		container_of(work, struct mmc_host, detect.work);
 	int i;
+#if defined(CONFIG_MACH_D4_GALAXYNX)
+	if (host->index == 0 && flag == 0)
+		return;
+
+	if (g_support_card == 1)
+		return;
+#else
+	if (host->index == 1 && flag == 0)
+		return;
+#endif
 
 	if (host->rescan_disable)
 		return;
 
+	//mdelay(25);
 	mmc_bus_get(host);
 
 	/*
@@ -2073,6 +2147,9 @@ void mmc_rescan(struct work_struct *work)
 
 	/* if there still is a card present, stop here */
 	if (host->bus_ops != NULL) {
+//		if (host->bus_ops->remove != NULL)
+//			host->bus_ops->remove(host);
+//		while (host->bus_ops != NULL)
 		mmc_bus_put(host);
 		goto out;
 	}
@@ -2102,6 +2179,13 @@ void mmc_rescan(struct work_struct *work)
  out:
 	if (host->caps & MMC_CAP_NEEDS_POLL)
 		mmc_schedule_delayed_work(&host->detect, HZ);
+
+#if defined(CONFIG_MACH_D4_GALAXYNX)
+	g_support_card = 1;
+#else
+	if (host->index == 1)
+		g_support_card = 1;
+#endif
 }
 
 void mmc_start_host(struct mmc_host *host)
@@ -2331,7 +2415,7 @@ int mmc_suspend_host(struct mmc_host *host)
 		if (host->bus_ops->suspend)
 			err = host->bus_ops->suspend(host);
 
-		if (err == -ENOSYS || !host->bus_ops->resume) {
+		if (err == -ENOSYS || !host->bus_ops->resume || (host->index == 1)) {
 			/*
 			 * We simply "remove" the card in this case.
 			 * It will be redetected on resume.  (Calling
@@ -2445,8 +2529,9 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 		host->rescan_disable = 0;
 		host->power_notify_type = MMC_HOST_PW_NOTIFY_LONG;
 		spin_unlock_irqrestore(&host->lock, flags);
-		mmc_detect_change(host, 0);
 
+//		if (host->index == 0) 
+			mmc_detect_change(host, 0);
 	}
 
 	return 0;
@@ -2493,7 +2578,11 @@ static void __exit mmc_exit(void)
 	destroy_workqueue(workqueue);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(mmc_init);
+#else
+fast_subsys_initcall(mmc_init);
+#endif
 module_exit(mmc_exit);
 
 MODULE_LICENSE("GPL");

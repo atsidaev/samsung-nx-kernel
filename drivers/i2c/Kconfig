@@ -109,4 +109,8 @@ config I2C_DEBUG_BUS
 	  a problem with I2C support and want to see more of what is going
 	  on.
 
+config SI2C
+	bool "SI2C Device Driver"
+	help
+
 endif # I2C

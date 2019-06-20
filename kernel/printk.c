@@ -59,8 +59,8 @@ void asmlinkage __attribute__((weak)) early_printk(const char *fmt, ...)
 #define DEFAULT_MESSAGE_LOGLEVEL CONFIG_DEFAULT_MESSAGE_LOGLEVEL
 
 /* We show everything that is MORE important than this.. */
-#define MINIMUM_CONSOLE_LOGLEVEL 1 /* Minimum loglevel we let people use */
-#define DEFAULT_CONSOLE_LOGLEVEL 7 /* anything MORE serious than KERN_DEBUG */
+#define MINIMUM_CONSOLE_LOGLEVEL 0 /* Minimum loglevel we let people use */
+#define DEFAULT_CONSOLE_LOGLEVEL 2 /* anything MORE serious than KERN_DEBUG */
 
 DECLARE_WAIT_QUEUE_HEAD(log_wait);
 
@@ -1574,6 +1574,40 @@ asmlinkage int printk_emit(int facility, int level,
 }
 EXPORT_SYMBOL(printk_emit);
 
+#ifdef CONFIG_SCORE_TEST
+/* just for test. So atomic_t is not used */
+static int enable_printk_count=0;
+static int saved_console_printk[4];
+void start_enable_printk(void)
+{
+    int i;
+
+    enable_printk_count++;
+
+    if (enable_printk_count > 1)
+        return ;
+
+    for (i = 0; i < 4; i++)
+    {
+        saved_console_printk[i] = console_printk[i];
+        console_printk[i] = 7;
+    }
+}
+void finish_enable_printk(void)
+{
+    int i;
+
+    enable_printk_count--;
+
+    if (enable_printk_count > 0)
+        return ;
+
+    for (i = 0; i < 4; i++)
+    {
+        console_printk[i] = saved_console_printk[i];
+    }
+}
+#endif
 /**
  * printk - print a kernel message
  * @fmt: format string

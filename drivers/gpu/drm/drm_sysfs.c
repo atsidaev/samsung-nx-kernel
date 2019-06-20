@@ -421,7 +421,7 @@ int drm_sysfs_connector_add(struct drm_connector *connector)
 		goto err_out_files;
 
 	/* Let userspace know we have a new connector */
-	drm_sysfs_hotplug_event(dev);
+	drm_sysfs_hotplug_event(dev, 1);
 
 	return 0;
 
@@ -475,14 +475,17 @@ EXPORT_SYMBOL(drm_sysfs_connector_remove);
  * set HOTPLUG=1 in the uevent environment, but this could be expanded to
  * deal with other types of events.
  */
-void drm_sysfs_hotplug_event(struct drm_device *dev)
+void drm_sysfs_hotplug_event(struct drm_device *dev, int value)
 {
 	char *event_string = "HOTPLUG=1";
 	char *envp[] = { event_string, NULL };
 
 	DRM_DEBUG("generating hotplug event\n");
 
-	kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_CHANGE, envp);
+	if(value == 1)
+		kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_ADD, envp);
+	else
+		kobject_uevent_env(&dev->primary->kdev.kobj, KOBJ_REMOVE, envp);
 }
 EXPORT_SYMBOL(drm_sysfs_hotplug_event);
 

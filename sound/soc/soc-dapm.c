@@ -1570,7 +1570,16 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 	}
 
 	list_for_each_entry(w, &card->widgets, list) {
-		list_del_init(&w->dirty);
+		
+		switch (w->id) {
+			case snd_soc_dapm_pre:
+			case snd_soc_dapm_post:
+				/* These widgets always need to be powered */
+				break;  
+			default:
+				list_del_init(&w->dirty);
+				break;
+		}
 
 		if (w->power) {
 			d = w->dapm;
@@ -3436,6 +3445,8 @@ int snd_soc_dapm_ignore_suspend(struct snd_soc_dapm_context *dapm,
 				const char *pin)
 {
 	struct snd_soc_dapm_widget *w = dapm_find_widget(dapm, pin, false);
+
+	printk("--------------- %s ---------------\n", __FUNCTION__);
 
 	if (!w) {
 		dev_err(dapm->dev, "dapm: unknown pin %s\n", pin);

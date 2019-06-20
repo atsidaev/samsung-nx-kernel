@@ -30,3 +30,4 @@ obj-$(CONFIG_PINCTRL_U300)	+= pinctrl-u300.o
 obj-$(CONFIG_PINCTRL_COH901)	+= pinctrl-coh901.o
 
 obj-$(CONFIG_PLAT_SPEAR)	+= spear/
+obj-$(CONFIG_PINCTRL_DRIME4)	+= pinctrl-drime4.o

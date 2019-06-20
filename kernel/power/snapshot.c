@@ -607,6 +607,51 @@ struct nosave_region {
 
 static LIST_HEAD(nosave_regions);
 
+#ifdef  CONFIG_SCORE_FAST_BOOT
+struct nosave_region cma_nosave_region[6];
+int index_of_cma_nosave_region = 0;
+struct nosave_region text_nosave_region;
+
+void mark_cma_nosave_region(unsigned long start_pfn, unsigned long end_pfn)
+{
+	static int b_first = 1;
+	if (b_first)
+	{
+		cma_nosave_region[index_of_cma_nosave_region].start_pfn = start_pfn;
+		cma_nosave_region[index_of_cma_nosave_region++].end_pfn = end_pfn;
+		b_first = 0;
+	}
+}
+
+void register_cma_nosave_region(void)
+{
+    int i = 0;
+
+    printk(KERN_INFO "Register CMA nosave region\n");
+#if 0
+    if (index_of_cma_nosave_region != 2) {
+        printk(KERN_ERR "!! CMA regions are changed !!");
+        return;
+    }
+#endif
+
+    for(i=0; i < index_of_cma_nosave_region; i++)
+        register_nosave_region(cma_nosave_region[i].start_pfn, cma_nosave_region[i].end_pfn);
+}
+
+void mark_text_nosave_region(unsigned long start_pfn, unsigned long end_pfn)
+{
+    text_nosave_region.start_pfn = start_pfn;
+    text_nosave_region.end_pfn = end_pfn;
+}
+
+void register_text_nosave_region(void)
+{
+    printk(KERN_INFO "Register text nosave region\n");
+    register_nosave_region(text_nosave_region.start_pfn, text_nosave_region.end_pfn);
+}
+#endif
+
 /**
  *	register_nosave_region - register a range of page frames the contents
  *	of which should not be saved during the suspend (to be used in the early
@@ -1117,6 +1162,9 @@ void swsusp_free(void)
 
 #define GFP_IMAGE	(GFP_KERNEL | __GFP_NOWARN)
 
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+struct page *alloc_image_page_extra(void);
+#endif
 /**
  * preallocate_image_pages - Allocate a number of pages for hibernation image
  * @nr_pages: Number of page frames to allocate.
@@ -1127,11 +1175,20 @@ void swsusp_free(void)
 static unsigned long preallocate_image_pages(unsigned long nr_pages, gfp_t mask)
 {
 	unsigned long nr_alloc = 0;
-
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT_FAKE
+    long pfn=813056;    /* XXX : temporary hard coding */
+#endif
 	while (nr_pages > 0) {
 		struct page *page;
-
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT_FAKE
+        page = pfn_to_page(++pfn);  /* XXX : temporary hard coding */
+#else
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+        page = alloc_image_page_extra();
+        if (!page)
+#endif
 		page = alloc_image_page(mask);
+#endif
 		if (!page)
 			break;
 		memory_bm_set_bit(&copy_bm, page_to_pfn(page));
@@ -1280,6 +1337,9 @@ static unsigned long minimum_image_size(unsigned long saveable)
 	return saveable <= size ? 0 : saveable - size;
 }
 
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+unsigned long reserved_extra_size(void);
+#endif
 /**
  * hibernate_preallocate_memory - Preallocate memory for hibernation image
  *
@@ -1362,7 +1422,16 @@ int hibernate_preallocate_memory(void)
 	 * current number of saveable pages in memory, allocate page frames for
 	 * the image and we're done.
 	 */
+
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT_FAKE
+	if (1) {    /* XXX temporary hard coding */
+#else
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+	if (size + reserved_extra_size() > saveable) {
+#else
 	if (size >= saveable) {
+#endif
+#endif
 		pages = preallocate_image_highmem(save_highmem);
 		pages += preallocate_image_memory(saveable - pages, avail_normal);
 		goto out;

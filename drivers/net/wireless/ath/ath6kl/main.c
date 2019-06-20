@@ -15,13 +15,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include "core.h"
 #include "hif-ops.h"
 #include "cfg80211.h"
 #include "target.h"
 #include "debug.h"
+#include "wmiconfig.h"
 
 struct ath6kl_sta *ath6kl_find_sta(struct ath6kl_vif *vif, u8 *node_addr)
 {
@@ -149,14 +148,23 @@ enum htc_endpoint_id ath6kl_ac2_endpoint_id(void *devt, u8 ac)
 	return ar->ac2ep_map[ac];
 }
 
-struct ath6kl_cookie *ath6kl_alloc_cookie(struct ath6kl *ar)
+struct ath6kl_cookie *ath6kl_alloc_cookie(struct ath6kl *ar, bool isctrl)
 {
 	struct ath6kl_cookie *cookie;
 
-	cookie = ar->cookie_list;
-	if (cookie != NULL) {
-		ar->cookie_list = cookie->arc_list_next;
-		ar->cookie_count--;
+	/* If this cookie is for control packet*/
+	if (isctrl) {
+		cookie = ar->wmi_cookie_list;
+		if (cookie != NULL) {
+			ar->wmi_cookie_list = cookie->arc_list_next;
+			ar->wmi_cookie_count--;
+		}
+	} else {
+		cookie = ar->cookie_list;
+		if (cookie != NULL) {
+			ar->cookie_list = cookie->arc_list_next;
+			ar->cookie_count--;
+		}
 	}
 
 	return cookie;
@@ -166,31 +174,54 @@ void ath6kl_cookie_init(struct ath6kl *ar)
 {
 	u32 i;
 
+	/* Initilize data cookie list */
 	ar->cookie_list = NULL;
 	ar->cookie_count = 0;
 
 	memset(ar->cookie_mem, 0, sizeof(ar->cookie_mem));
 
 	for (i = 0; i < MAX_COOKIE_NUM; i++)
-		ath6kl_free_cookie(ar, &ar->cookie_mem[i]);
+		ath6kl_free_cookie(ar, &ar->cookie_mem[i], false);
+
+	/* Initilize control cookie list */
+	ar->wmi_cookie_list = NULL;
+	ar->wmi_cookie_count = 0;
+
+	memset(ar->wmi_cookie_mem, 0, sizeof(ar->wmi_cookie_mem));
+
+	for (i = 0; i < WMI_MAX_COOKIE_NUM; i++)
+		ath6kl_free_cookie(ar, &ar->wmi_cookie_mem[i], true);
 }
 
 void ath6kl_cookie_cleanup(struct ath6kl *ar)
 {
+	/* Cleanup the data cookie */
 	ar->cookie_list = NULL;
 	ar->cookie_count = 0;
+
+	/* Cleanup the control cookie */
+	ar->wmi_cookie_list = NULL;
+	ar->wmi_cookie_count = 0;
 }
 
-void ath6kl_free_cookie(struct ath6kl *ar, struct ath6kl_cookie *cookie)
+void ath6kl_free_cookie(struct ath6kl *ar, struct ath6kl_cookie *cookie,
+			bool isctrl)
 {
 	/* Insert first */
 
 	if (!ar || !cookie)
 		return;
 
-	cookie->arc_list_next = ar->cookie_list;
-	ar->cookie_list = cookie;
-	ar->cookie_count++;
+	/* If it is control cookie */
+	if (isctrl) {
+		cookie->arc_list_next = ar->wmi_cookie_list;
+		ar->wmi_cookie_list = cookie;
+		ar->wmi_cookie_count++;
+	} else {
+		cookie->arc_list_next = ar->cookie_list;
+		ar->cookie_list = cookie;
+		ar->cookie_count++;
+	}
 }
 
 /*
@@ -348,11 +379,15 @@ void ath6kl_reset_device(struct ath6kl *ar, u32 target_type,
 			 bool wait_fot_compltn, bool cold_reset)
 {
 	int status = 0;
+#if 0 //donghyeon.kim (2013-02-13 17:14:59) - Static Test
 	u32 address;
+#else
+	u32 address = AR6003_RESET_CONTROL_ADDRESS;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 	__le32 data;
 
 	if (target_type != TARGET_TYPE_AR6003 &&
-	    target_type != TARGET_TYPE_AR6004)
+		target_type != TARGET_TYPE_AR6004)
 		return;
 
 	data = cold_reset ? cpu_to_le32(RESET_CONTROL_COLD_RST) :
@@ -421,8 +456,8 @@ void ath6kl_connect_ap_mode_bss(struct ath6kl_vif *vif, u16 channel)
 		if (!ik->valid)
 			break;
 
-		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG,
-			   "Delayed addkey for the initial group key for AP mode\n");
+		ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "Delayed addkey for "
+			   "the initial group key for AP mode\n");
 		memset(key_rsc, 0, sizeof(key_rsc));
 		res = ath6kl_wmi_addkey_cmd(
 			ar->wmi, vif->fw_vif_idx, ik->key_index, ik->key_type,
@@ -430,8 +465,8 @@ void ath6kl_connect_ap_mode_bss(struct ath6kl_vif *vif, u16 channel)
 			ik->key,
 			KEY_OP_INIT_VAL, NULL, SYNC_BOTH_WMIFLAG);
 		if (res) {
-			ath6kl_dbg(ATH6KL_DBG_WLAN_CFG,
-				   "Delayed addkey failed: %d\n", res);
+			ath6kl_dbg(ATH6KL_DBG_WLAN_CFG, "Delayed "
+				   "addkey failed: %d\n", res);
 		}
 		break;
 	}
@@ -548,18 +583,21 @@ void ath6kl_disconnect(struct ath6kl_vif *vif)
 
 /* WMI Event handlers */
 
-void ath6kl_ready_event(void *devt, u8 *datap, u32 sw_ver, u32 abi_ver,
-			enum wmi_phy_cap cap)
+void ath6kl_ready_event(void *devt, u8 *datap, u32 sw_ver, u32 abi_ver)
 {
 	struct ath6kl *ar = devt;
 
 	memcpy(ar->mac_addr, datap, ETH_ALEN);
+#if 0 //donghyeon.kim (2013-02-06 15:11:11)
 	ath6kl_dbg(ATH6KL_DBG_TRC, "%s: mac addr = %pM\n",
 		   __func__, ar->mac_addr);
+#else
+	ath6kl_emerg("[%d:%s()] mac addr = %02x:%02x:%02x:%02x:%02x:%02x\n",
+		   __LINE__, __func__, ar->mac_addr[0], ar->mac_addr[1], ar->mac_addr[2], ar->mac_addr[3], ar->mac_addr[4], ar->mac_addr[5]);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	ar->version.wlan_ver = sw_ver;
 	ar->version.abi_ver = abi_ver;
-	ar->hw.cap = cap;
 
 	snprintf(ar->wiphy->fw_version,
 		 sizeof(ar->wiphy->fw_version),
@@ -570,6 +608,9 @@ void ath6kl_ready_event(void *devt, u8 *datap, u32 sw_ver, u32 abi_ver,
 		 (ar->version.wlan_ver & 0x0000ffff));
 
 	/* indicate to the waiting thread that the ready event was received */
+#if 1 //donghyeon.kim (2013-02-06 15:25:49)
+	ar->wmi_ready = true;
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */	
 	set_bit(WMI_READY, &ar->flag);
 	wake_up(&ar->event_wq);
 }
@@ -812,6 +853,8 @@ static void ath6kl_update_target_stats(struct ath6kl_vif *vif, u8 *ptr, u32 len)
 	stats->arp_replied = le32_to_cpu(tgt_stats->arp_stats.arp_replied);
 	stats->arp_matched = le32_to_cpu(tgt_stats->arp_stats.arp_matched);
 
+	ath6kl_wmicfg_send_stats(vif, stats);
+
 	if (test_bit(STATS_UPDATE_PEND, &vif->flags)) {
 		clear_bit(STATS_UPDATE_PEND, &vif->flags);
 		wake_up(&ar->event_wq);
@@ -1009,8 +1052,8 @@ void ath6kl_disconnect_event(struct ath6kl_vif *vif, u8 reason, u8 *bssid,
 	}
 
 	ath6kl_cfg80211_disconnect_event(vif, reason, bssid,
-					 assoc_resp_len, assoc_info,
-					 prot_reason_status);
+				       assoc_resp_len, assoc_info,
+				       prot_reason_status);
 
 	aggr_reset_state(vif->aggr_cntxt->aggr_conn);
 
@@ -1030,9 +1073,9 @@ void ath6kl_disconnect_event(struct ath6kl_vif *vif, u8 reason, u8 *bssid,
 	} else {
 		set_bit(CONNECT_PEND, &vif->flags);
 		if (((reason == ASSOC_FAILED) &&
-		     (prot_reason_status == 0x11)) ||
-		    ((reason == ASSOC_FAILED) && (prot_reason_status == 0x0) &&
-		     (vif->reconnect_flag == 1))) {
+		    (prot_reason_status == 0x11)) ||
+		    ((reason == ASSOC_FAILED) && (prot_reason_status == 0x0)
+		     && (vif->reconnect_flag == 1))) {
 			set_bit(CONNECTED, &vif->flags);
 			return;
 		}
@@ -1078,6 +1121,30 @@ static int ath6kl_open(struct net_device *dev)
 {
 	struct ath6kl_vif *vif = netdev_priv(dev);
 
+#if 1 //donghyeon.kim (2013-02-08 10:21:16)
+	struct ath6kl *ar = ath6kl_priv(dev);
+	int i = 0, loop_count = 20;
+
+	ath6kl_info("[%d:%s()] Enter\n", __LINE__, __func__);
+
+	//wait WMI_READY event
+	while (1) 
+	{
+		if (ar->wmi_ready) {
+			ath6kl_emerg("[%d:%s()] wmi is ready\n", __LINE__, __func__);
+			break;
+		}
+
+		//check loop_count
+		if (++i > loop_count) {
+			ath6kl_emerg("[%d:%s()] wmi is not ready! loop_count expired!\n", __LINE__, __func__);
+			break;
+		}
+
+		mdelay(100);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 	set_bit(WLAN_ENABLED, &vif->flags);
 
 	if (test_bit(CONNECTED, &vif->flags)) {
@@ -1092,6 +1159,10 @@ static int ath6kl_open(struct net_device *dev)
 static int ath6kl_close(struct net_device *dev)
 {
 	struct ath6kl_vif *vif = netdev_priv(dev);
+
+#if 1 //donghyeon.kim (2013-02-08 10:21:16)
+	ath6kl_info("[%d:%s()] Enter\n", __LINE__, __func__);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	netif_stop_queue(dev);
 
@@ -1109,8 +1180,12 @@ static struct net_device_stats *ath6kl_get_stats(struct net_device *dev)
 	return &vif->net_stats;
 }
 
-static int ath6kl_set_features(struct net_device *dev,
-			       netdev_features_t features)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
+static int ath6kl_set_features(struct net_device *dev, netdev_features_t features)
+#else
+static int ath6kl_set_features(struct net_device *dev, u32 features)
+#endif
 {
 	struct ath6kl_vif *vif = netdev_priv(dev);
 	struct ath6kl *ar = vif->ar;
@@ -1141,6 +1216,7 @@ static int ath6kl_set_features(struct net_device *dev,
 
 	return err;
 }
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)) */
 
 static void ath6kl_set_multicast_list(struct net_device *ndev)
 {
@@ -1178,10 +1254,10 @@ static void ath6kl_set_multicast_list(struct net_device *ndev)
 
 	/* Enable/disable "multicast-all" filter*/
 	ath6kl_dbg(ATH6KL_DBG_TRC, "%s multicast-all filter\n",
-		   mc_all_on ? "enabling" : "disabling");
-
+		    mc_all_on ? "enabling" : "disabling");
 	ret = ath6kl_wmi_mcast_filter_cmd(vif->ar->wmi, vif->fw_vif_idx,
-						  mc_all_on);
+					  mc_all_on);
+
 	if (ret) {
 		ath6kl_warn("Failed to %s multicast-all receive\n",
 			    mc_all_on ? "enable" : "disable");
@@ -1196,7 +1272,7 @@ static void ath6kl_set_multicast_list(struct net_device *ndev)
 		found = false;
 		netdev_for_each_mc_addr(ha, ndev) {
 			if (memcmp(ha->addr, mc_filter->hw_addr,
-				   ATH6KL_MCAST_FILTER_MAC_ADDR_SIZE) == 0) {
+			    ATH6KL_MCAST_FILTER_MAC_ADDR_SIZE) == 0) {
 				found = true;
 				break;
 			}
@@ -1215,7 +1291,7 @@ static void ath6kl_set_multicast_list(struct net_device *ndev)
 					false);
 			if (ret) {
 				ath6kl_warn("Failed to remove multicast filter:%pM\n",
-					    mc_filter->hw_addr);
+					     mc_filter->hw_addr);
 				return;
 			}
 
@@ -1230,7 +1306,7 @@ static void ath6kl_set_multicast_list(struct net_device *ndev)
 		found = false;
 		list_for_each_entry(mc_filter, &vif->mc_filter, list) {
 			if (memcmp(ha->addr, mc_filter->hw_addr,
-				   ATH6KL_MCAST_FILTER_MAC_ADDR_SIZE) == 0) {
+			    ATH6KL_MCAST_FILTER_MAC_ADDR_SIZE) == 0) {
 				found = true;
 				break;
 			}
@@ -1255,7 +1331,7 @@ static void ath6kl_set_multicast_list(struct net_device *ndev)
 					true);
 			if (ret) {
 				ath6kl_warn("Failed to add multicast filter :%pM\n",
-					    mc_filter->hw_addr);
+					     mc_filter->hw_addr);
 				kfree(mc_filter);
 				goto out;
 			}
@@ -1268,27 +1344,40 @@ out:
 	list_splice_tail(&mc_filter_new, &vif->mc_filter);
 }
 
-static const struct net_device_ops ath6kl_netdev_ops = {
+static struct net_device_ops ath6kl_netdev_ops = {
 	.ndo_open               = ath6kl_open,
 	.ndo_stop               = ath6kl_close,
 	.ndo_start_xmit         = ath6kl_data_tx,
 	.ndo_get_stats          = ath6kl_get_stats,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39))
 	.ndo_set_features       = ath6kl_set_features,
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)) */
 	.ndo_set_rx_mode	= ath6kl_set_multicast_list,
 };
 
 void init_netdev(struct net_device *dev)
 {
-	dev->netdev_ops = &ath6kl_netdev_ops;
+	netdev_attach_ops(dev, &ath6kl_netdev_ops);
 	dev->destructor = free_netdev;
 	dev->watchdog_timeo = ATH6KL_TX_TIMEOUT;
 
+#if 0 //donghyeon.kim (2012-11-02 18:33:50)
 	dev->needed_headroom = ETH_HLEN;
 	dev->needed_headroom += sizeof(struct ath6kl_llc_snap_hdr) +
 				sizeof(struct wmi_data_hdr) + HTC_HDR_LENGTH
 				+ WMI_MAX_TX_META_SZ + ATH6KL_HTC_ALIGN_BYTES;
+#else
+	dev->needed_headroom = roundup( (ETH_HLEN + sizeof(struct ath6kl_llc_snap_hdr) +
+				sizeof(struct wmi_data_hdr) + HTC_HDR_LENGTH
+				+ WMI_MAX_TX_META_SZ + ATH6KL_HTC_ALIGN_BYTES), 4 );
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
-	dev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_RXCSUM;
+#if 1 //donghyeon.kim (2012-11-02 17:42:23)
+	ath6kl_info("[%d:%s()] ETH_HLEN-{%d} + sizeof(struct ath6kl_llc_snap_hdr)-{%d} + sizeof(struct wmi_data_hdr)-{%d} + HTC_HDR_LENGTH-{%d} + WMI_MAX_TX_META_SZ-{%d} + ATH6KL_HTC_ALIGN_BYTES-{%d} = %d\n", 
+	__LINE__, __func__,
+	ETH_HLEN, sizeof(struct ath6kl_llc_snap_hdr), sizeof(struct wmi_data_hdr), HTC_HDR_LENGTH, WMI_MAX_TX_META_SZ, ATH6KL_HTC_ALIGN_BYTES,
+	dev->needed_headroom);
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	return;
 }

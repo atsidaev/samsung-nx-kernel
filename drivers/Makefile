@@ -8,10 +8,12 @@
 # GPIO must come after pinctrl as gpios may need to mux pins etc
 obj-y				+= pinctrl/
 obj-y				+= gpio/
+obj-y				+= pwm/
 obj-$(CONFIG_PCI)		+= pci/
+obj-$(CONFIG_PMU)		+= pmu/
+obj-$(CONFIG_PTC_DEV)		+= ptc/
 obj-$(CONFIG_PARISC)		+= parisc/
 obj-$(CONFIG_RAPIDIO)		+= rapidio/
-obj-y				+= video/
 obj-y				+= idle/
 obj-$(CONFIG_ACPI)		+= acpi/
 obj-$(CONFIG_SFI)		+= sfi/
@@ -36,7 +38,7 @@ obj-y				+= char/
 
 # gpu/ comes after char for AGP vs DRM startup
 obj-y				+= gpu/
-
+obj-y				+= video/
 obj-$(CONFIG_CONNECTOR)		+= connector/
 
 # i810fb and intelfb depend on char/agp/
@@ -53,6 +55,7 @@ obj-$(CONFIG_ATA)		+= ata/
 obj-$(CONFIG_TARGET_CORE)	+= target/
 obj-$(CONFIG_MTD)		+= mtd/
 obj-$(CONFIG_SPI)		+= spi/
+obj-$(CONFIG_RMU_DEV)		+= rmu/
 obj-y				+= hsi/
 obj-y				+= net/
 obj-$(CONFIG_ATM)		+= atm/
@@ -137,3 +140,6 @@ obj-$(CONFIG_EXTCON)		+= extcon/
 obj-$(CONFIG_MEMORY)		+= memory/
 obj-$(CONFIG_IIO)		+= iio/
 obj-$(CONFIG_VME_BUS)		+= vme/
+obj-$(CONFIG_SCORE_FBDBG)             += fbdbg/
+obj-$(CONFIG_BRIDGE_DEV)    +=mbic/
+obj-$(CONFIG_INT_STR_DEV)    +=instr/

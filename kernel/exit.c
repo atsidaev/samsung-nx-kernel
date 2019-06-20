@@ -58,6 +58,7 @@
 #include <asm/unistd.h>
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
+#include <linux/delay.h>
 
 static void exit_mm(struct task_struct * tsk);
 
@@ -1071,6 +1072,9 @@ void do_exit(long code)
 	/* causes final put_task_struct in finish_task_switch(). */
 	tsk->state = TASK_DEAD;
 	tsk->flags |= PF_NOFREEZE;	/* tell freezer to ignore us */
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+    score_dbg_info_print(tsk);
+#endif
 	schedule();
 	BUG();
 	/* Avoid "noreturn function does return".  */
@@ -1103,8 +1107,21 @@ void
 do_group_exit(int exit_code)
 {
 	struct signal_struct *sig = current->signal;
+	struct timespec ts;
+	char thread_name[80] = {0,};
 
 	BUG_ON(exit_code & 0x80); /* core dumps don't get here */
+
+	if ((exit_code == SIGABRT) || (exit_code == SIGFPE)){
+		get_task_comm(thread_name,current);
+		ktime_get_ts(&ts);
+		printk(KERN_ALERT "[%d.%ld] do_group_exit(%d) fault : tid(%d) \n", (int)ts.tv_sec,(int)ts.tv_nsec, exit_code,sys_gettid(),thread_name);
+		while(1)
+		{
+			msleep(1000);
+		}
+	}
+
 
 	if (signal_group_exit(sig))
 		exit_code = sig->group_exit_code;
@@ -1121,6 +1138,7 @@ do_group_exit(int exit_code)
 		}
 		spin_unlock_irq(&sighand->siglock);
 	}
+
 
 	do_exit(exit_code);
 	/* NOTREACHED */

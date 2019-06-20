@@ -60,6 +60,8 @@ extern void setup_mm_for_reboot(void);
 
 static volatile int hlt_counter;
 
+#include <mach/system.h>
+
 void disable_hlt(void)
 {
 	hlt_counter++;
@@ -146,6 +148,26 @@ void soft_restart(unsigned long addr)
 
 static void null_restart(char mode, const char *cmd)
 {
+	/* Disable interrupts first */
+	local_irq_disable();
+	local_fiq_disable();
+	
+	/* Take out a flat memory mapping. */
+	setup_mm_for_reboot();
+
+	/* Clean and invalidate caches */
+	flush_cache_all();
+
+	/* Turn off caching */
+	cpu_proc_fin();
+
+	/* Push out any further dirty data, and ensure cache is empty */
+	flush_cache_all();
+
+	arch_reset(0, NULL);
+	mdelay(1000);
+	printk("Reboot failed -- System halted\n");
+	while (1);
 }
 
 /*

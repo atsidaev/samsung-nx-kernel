@@ -1826,7 +1826,11 @@ module_exit(fbmem_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Framebuffer base");
 #else
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(fbmem_init);
+#else
+fast_subsys_initcall(fbmem_init);
+#endif
 #endif
 
 int fb_new_modelist(struct fb_info *info)

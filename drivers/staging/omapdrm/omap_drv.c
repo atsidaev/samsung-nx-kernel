@@ -83,12 +83,19 @@ static int omap_drm_notifier(struct notifier_block *nb,
 {
 	switch (evt) {
 	case OMAP_DSS_SIZE_CHANGE:
-	case OMAP_DSS_HOTPLUG_CONNECT:
+	case OMAP_DSS_HOTPLUG_CONNECT:{
+		struct drm_device *dev = drm_device;
+		DBG("hotplug event: evt=%d, dev=%p", evt, dev);
+		if (dev) {
+			drm_sysfs_hotplug_event(dev, 1);
+		}
+		return NOTIFY_OK;
+	}
 	case OMAP_DSS_HOTPLUG_DISCONNECT: {
 		struct drm_device *dev = drm_device;
 		DBG("hotplug event: evt=%d, dev=%p", evt, dev);
 		if (dev) {
-			drm_sysfs_hotplug_event(dev);
+			drm_sysfs_hotplug_event(dev, 0);
 		}
 		return NOTIFY_OK;
 	}

@@ -100,22 +100,30 @@ static void __devexit dw_mci_pci_remove(struct pci_dev *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int dw_mci_pci_suspend(struct device *dev)
 {
+	return 0;
+/*
 	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct dw_mci *host = pci_get_drvdata(pdev);
 
-	ret = dw_mci_suspend(host);
+//	ret = dw_mci_suspend(host);
+	ret = 0;
 	return ret;
+	*/
 }
 
 static int dw_mci_pci_resume(struct device *dev)
 {
+	return 0;
+/*
 	int ret;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct dw_mci *host = pci_get_drvdata(pdev);
 
-	ret = dw_mci_resume(host);
+//	ret = dw_mci_resume(host);
+	ret = 0;
 	return ret;
+	*/
 }
 #else
 #define dw_mci_pci_suspend	NULL

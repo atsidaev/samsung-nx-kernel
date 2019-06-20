@@ -1,0 +1,8 @@
+#
+# D4 JPEG_XR drivers configurations
+#
+
+config DRIME4_JPEG_XR
+	tristate "Samsung DRIMe4 JPEG_XR driver"
+	---help---
+	  This is a JPEG_XR driver for Samsung DRIMe4

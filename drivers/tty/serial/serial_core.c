@@ -33,9 +33,47 @@
 #include <linux/serial_core.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/syscalls.h>
 
 #include <asm/irq.h>
 #include <asm/uaccess.h>
+#include <linux/io.h>
+#include <mach/map.h>
+#include <mach/watchdog-reset.h>
+
+
+/*
+ * This routine is used by the interrupt handler to schedule processing in
+ * the software interrupt portion of the driver.
+ */
+#define _USE_RELEASE_LOG_
+
+void uart_save_log_to_card(int saveType , char *func);
+
+#ifdef _USE_RELEASE_LOG_
+#define DEBUG_MODE		0
+#define RELEASE_MODE	1
+#define LOG_BUF_SIZE	(128 * 1024)
+
+static int uart_mode = DEBUG_MODE;
+
+static unsigned long r_log_buf_size;
+unsigned char *r_log_buf;
+static unsigned long r_log_idx;
+static int r_log_overall;
+static int isKeyLogSave;
+unsigned long is_poweroff_status;
+unsigned long is_poweroff_halt_status;
+
+struct work_struct log_queue;
+
+static void make_log_file(struct work_struct *work)
+{
+	uart_save_log_to_card(0, (char *)__FUNCTION__);
+
+	printk("!!!!!!!!!!!!!!!!!!!!!!!!\n log save end\n!!!!!!!!!!!!!!!!!!!!!!!1\n");
+}
+#endif
 
 /*
  * This is used to lock changes in serial line configuration.
@@ -501,6 +539,11 @@ static int uart_write(struct tty_struct *tty,
 	unsigned long flags;
 	int c, ret = 0;
 
+#ifdef _USE_RELEASE_LOG_
+	int r_count = 0;
+	const unsigned char *r_buf = NULL;
+#endif
+
 	/*
 	 * This means you called this function _after_ the port was
 	 * closed.  No cookie for you.
@@ -515,6 +558,43 @@ static int uart_write(struct tty_struct *tty,
 
 	if (!circ->buf)
 		return 0;
+
+#ifdef _USE_RELEASE_LOG_
+	if (count > 3) {
+		/* is there log level */
+		if (buf[0] == '<' && buf[1] == '0' && buf[2] == '>') {
+			uart_mode = RELEASE_MODE;
+		} else {
+			uart_mode = DEBUG_MODE;
+		}
+	} else {
+		uart_mode = DEBUG_MODE;
+	}
+
+	r_count = count;
+	r_buf = buf;
+	if (r_log_idx + r_count > r_log_buf_size) {
+		memcpy(r_log_buf + r_log_idx, r_buf, r_log_buf_size-r_log_idx);
+		r_count -= r_log_buf_size-r_log_idx;
+		r_buf += r_log_buf_size-r_log_idx;
+		r_log_idx = 0;
+		r_log_overall = 1;
+	}
+	memcpy(r_log_buf + r_log_idx, r_buf, r_count);
+	r_log_idx = (r_log_idx + r_count) & (r_log_buf_size - 1);
+
+#if 0
+	if (r_log_idx >= 1) {
+		if (']' != r_log_buf[r_log_idx-1] || 14 != r_count) {
+			r_log_buf[r_log_idx++] = '\n';
+		}
+	}
+#endif
+
+    if (uart_mode == RELEASE_MODE) {
+		return count;
+	}
+#endif
 
 	spin_lock_irqsave(&port->lock, flags);
 	while (1) {
@@ -2216,6 +2296,11 @@ int uart_register_driver(struct uart_driver *drv)
 
 	BUG_ON(drv->state);
 
+#ifdef _USE_RELEASE_LOG_
+	r_log_buf = kmalloc(LOG_BUF_SIZE, GFP_KERNEL);
+	r_log_buf_size = LOG_BUF_SIZE;
+	INIT_WORK(&log_queue, make_log_file);
+#endif
 	/*
 	 * Maybe we should be using a slab cache for this, especially if
 	 * we have a large number of ports to handle.
@@ -2536,6 +2621,372 @@ void uart_insert_char(struct uart_port *port, unsigned int status,
 	if (status & ~port->ignore_status_mask & overrun)
 		tty_insert_flip_char(tty, 0, TTY_OVERRUN);
 }
+
+
+static const char * escape_codes[] = 
+{
+	"\033[1m",		
+	"\033[1;35m",		
+	"\033[30m",		/* 1. black   */
+	"\033[31m",		/* 2. red     */
+	"\033[32m",		/* 3. green   */
+	"\033[33m",		/* 4. yellow  */
+	"\033[34m",		/* 5. blue    */
+	"\033[35m",		/* 6. magenta */
+	"\033[36m",		/* 7. cyan    */
+	"\033[37m",		/* 8. white   */
+	"\033[43;30m",	/*            */
+	"\033[44m",		/*            */
+	"\033[0m",		/* escape end */
+	"\033[m"		/* escape end */
+};
+
+static int num_escape_codes = sizeof(escape_codes) / sizeof(char *);
+
+/**
+ * remove escape codes
+ */
+void remove_escape_codes(char * log_buffer, unsigned long log_buffer_size)
+{
+	int matched_len = 0;
+	int i = 0;
+	int f_matched = 0;
+
+	char * ptr = log_buffer;
+	char * buffer_end = log_buffer + log_buffer_size - 1;
+	char * src;
+	char * tar;
+	
+	while (ptr <= (buffer_end - 4))
+	{
+		if (*ptr == '\033')
+		{
+			f_matched = 0;
+			for (i = 0; i < num_escape_codes; i++)
+			{
+				matched_len = strlen(escape_codes[i]);
+				if (strncmp(ptr, escape_codes[i], matched_len) == 0)
+				{
+					f_matched = 1;
+					break;
+				}
+			}
+			if (f_matched)
+			{
+				tar = ptr;
+				src = ptr + matched_len;
+				while (src <= buffer_end)
+					*tar++ = *src++;
+				memset(buffer_end - matched_len, 0, matched_len);
+			}
+		}
+		ptr++;
+	}
+}
+
+#if defined(CONFIG_DRM_DRIME4)
+extern void display_fault(void);
+
+#define DRIME4_WDOGREG(x) ((x) + DRIME4_VA_WDT)
+#define DRIME4_WDTCR		 DRIME4_WDOGREG(0x0)
+#define	DRIME4_WDTPSR		DRIME4_WDOGREG(0x4)
+#define DRIME4_WDTLDR		DRIME4_WDOGREG(0x8)
+#define DRIME4_WDTVLR		DRIME4_WDOGREG(0xC)
+#define DRIME4_WDTISR		DRIME4_WDOGREG(0x10)
+
+#define ENABLE_WATCHDOG_PATH		"/etc/watchdog_enable"
+
+void reboot_exec(int sec)
+{
+	/* disable watchdog */
+	__raw_writel(0, DRIME4_WDTCR);
+
+	/* Scale Set */
+	__raw_writel(0xFFFF, DRIME4_WDTPSR);
+	__raw_writel(sec*63, DRIME4_WDTLDR);
+
+	/* watchdog reset */
+	__raw_writel(0x0007, DRIME4_WDTCR);
+}
+#endif
+
+void uart_save_log_to_card(int saveType , char *func)
+{
+#ifdef _USE_RELEASE_LOG_
+	unsigned char *buf;
+	/* char *file_path[50] = {' '}; */
+#if 0
+	int int_fd = -1;
+	int sys_fd = -1;
+#endif
+	int ext_fd = -1;
+	int val;
+	mm_segment_t old_fs = get_fs();
+	char dlogfile_name[100] = {0,};
+	char logfile_name[100] = {0,};
+	//int logfile_fd = -1;
+	//unsigned int log_file_check = 0;
+
+	struct timeval my_time;   
+	struct tm my_date;
+
+	char log_end_mark[50] = {0,};
+	struct timespec ts;
+	char thread_name[80] = {0,};
+
+	ktime_get_ts(&ts);
+	buf = r_log_buf;
+
+	set_fs(KERNEL_DS);
+
+	if (isKeyLogSave) {
+		isKeyLogSave = 0;
+	} else {
+#if defined(CONFIG_DRM_DRIME4)
+		if (sys_access(ENABLE_WATCHDOG_PATH, 0) == 0) {
+			is_poweroff_halt_status = 1;
+			display_fault();
+			reboot_exec(2);
+			while(1);
+		}
+#endif
+	}
+
+	do_gettimeofday(&my_time);   
+	time_to_tm(my_time.tv_sec, 0, &my_date);   
+        
+	printk(KERN_INFO "current  = %dy %dm %dd %dh %dm %ds, %dtz\n", \
+		my_date.tm_year + 1900, my_date.tm_mon + 1, \
+		my_date.tm_mday, my_date.tm_hour - sys_tz.tz_minuteswest / 60, \
+		my_date.tm_min, my_date.tm_sec, sys_tz.tz_minuteswest);
+
+#if 0
+	/* Check Log file */
+	for(log_file_check = 0 ; log_file_check < 1024 ; log_file_check++)
+	{
+		sprintf(logfile_name, "/sdcard/$log_%d.inf", log_file_check);
+		logfile_fd = sys_open(logfile_name, O_RDWR, S_IRWXU & ~(S_IRUSR));
+		if (logfile_fd >= 0)
+		{
+			sys_close(logfile_fd);
+			logfile_fd = -1;
+		}
+		else
+		{
+			logfile_fd = -1;
+			sprintf(logfile_name, "/sdcard/$log_%d.inf", log_file_check);
+			sprintf(dlogfile_name, "/sdcard/$dlog_%d.inf", log_file_check);
+			break;
+		}
+	}
+#else
+	sprintf(logfile_name, "/sdcard/%04d%02d%02d_%02d%02d%02d_log.inf",
+		my_date.tm_year + 1900, my_date.tm_mon + 1, \
+		my_date.tm_mday, my_date.tm_hour - sys_tz.tz_minuteswest / 60, \
+		my_date.tm_min, my_date.tm_sec);
+	sprintf(dlogfile_name, "/sdcard/%04d%02d%02d_%02d%02d%02d_dlog.inf",
+		my_date.tm_year + 1900, my_date.tm_mon + 1, \
+		my_date.tm_mday, my_date.tm_hour - sys_tz.tz_minuteswest / 60, \
+		my_date.tm_min, my_date.tm_sec);
+#endif
+	
+	val = __raw_readl(DRIME4_VA_GPIO + 0x183FC);		// GPIO24(1)
+	val |= (1<<1);
+	__raw_writel(val, DRIME4_VA_GPIO + 0x183FC);		// GPIO24(1)	
+
+	remove_escape_codes(r_log_buf, r_log_buf_size);
+
+	ext_fd = sys_open(logfile_name,
+						O_RDWR|O_CREAT|O_TRUNC|O_SYNC,
+						S_IRWXU & ~(S_IRUSR));
+
+	if (ext_fd < 0) {
+		sprintf(logfile_name, "/mnt/ubi1/rw_log.inf");
+		sprintf(dlogfile_name, "/mnt/ubi1/rw_dlog.inf");
+		
+		ext_fd = sys_open(logfile_name,
+							O_RDWR|O_CREAT|O_TRUNC|O_SYNC,
+							S_IRWXU & ~(S_IRUSR));
+	}
+
+	{
+		char *argv[] = { "/usr/bin/dlogutil", "-f", dlogfile_name, NULL };	//char *argv[] = { "/usr/bin/dlogutil", "-f", dlogfile_name, NULL };	//char *argv[] = { "/usr/bin/dlogutil", "-f", "/sdcard/$dlog.inf", NULL };
+		static char *envp[] = {
+				"HOME=/",
+				"TERM=linux",
+				"PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+		int ret = -EACCES;
+
+		ret = call_usermodehelper(argv[0], argv, envp, UMH_NO_WAIT);
+		printk(KERN_EMERG "ret = %d\n", ret);
+	}
+
+	if (r_log_overall) {
+		r_log_buf[r_log_buf_size-1] = '\n';
+		buf = r_log_buf + r_log_idx;
+
+#if 0
+		/* add end mark in log file. */
+		if (r_log_idx + 8 < r_log_buf_size-1) {
+			r_log_buf[r_log_idx] = '[';
+			r_log_buf[r_log_idx+1] = 'L';
+			r_log_buf[r_log_idx+2] = 'O';
+			r_log_buf[r_log_idx+3] = 'G';
+			r_log_buf[r_log_idx+4] = '_';
+			r_log_buf[r_log_idx+5] = 'E';
+			r_log_buf[r_log_idx+6] = 'N';
+			r_log_buf[r_log_idx+7] = 'D';
+			r_log_buf[r_log_idx+8] = ']';
+		} else {
+			r_log_buf[r_log_buf_size-10] = '[';
+			r_log_buf[r_log_buf_size-9] = 'L';
+			r_log_buf[r_log_buf_size-8] = 'O';
+			r_log_buf[r_log_buf_size-7] = 'G';
+			r_log_buf[r_log_buf_size-6] = '_';
+			r_log_buf[r_log_buf_size-5] = 'E';
+			r_log_buf[r_log_buf_size-4] = 'N';
+			r_log_buf[r_log_buf_size-3] = 'D';
+			r_log_buf[r_log_buf_size-2] = ']';
+		}
+
+		if (int_fd >= 0) {
+			sys_write(int_fd, buf, r_log_buf_size-r_log_idx);
+			sys_write(int_fd, r_log_buf, r_log_idx);
+		}
+
+		if (sys_fd >= 0) {
+			sys_write(sys_fd, buf, r_log_buf_size-r_log_idx);
+			sys_write(sys_fd, r_log_buf, r_log_idx);
+		}
+#endif
+		if (ext_fd >= 0) {
+			sys_write(ext_fd, buf, r_log_buf_size-r_log_idx);
+			sys_write(ext_fd, r_log_buf, r_log_idx);
+		}
+	} else {
+		if (r_log_idx < r_log_buf_size - 1) {
+#if 0
+			if (int_fd >= 0)
+				sys_write(int_fd, buf, r_log_idx);
+			if (sys_fd >= 0)
+				sys_write(sys_fd, buf, r_log_idx);
+#endif			
+			if (ext_fd >= 0)
+				sys_write(ext_fd, buf, r_log_idx);
+		} else {
+			r_log_buf[r_log_buf_size-1] = '\n';
+#if 0
+			if (int_fd >= 0)
+				sys_write(int_fd, buf, r_log_buf_size);
+			if (sys_fd >= 0)
+				sys_write(sys_fd, buf, r_log_buf_size);
+#endif
+			if (ext_fd >= 0)
+				sys_write(ext_fd, buf, r_log_buf_size);
+		}
+	}
+#if 0
+	if (int_fd >= 0) {
+		sys_close(int_fd); int_fd = -1;
+	}
+	if (sys_fd >= 0) {
+		sys_close(sys_fd); sys_fd = -1;
+	}
+#endif
+	get_task_comm(thread_name,current);
+	sprintf(log_end_mark, "\r\n[%d.%ld] serial log saved : %s tid(%d %s)", ts.tv_sec,ts.tv_nsec,func, sys_gettid(),thread_name);
+
+	sys_write(ext_fd, log_end_mark, strlen(log_end_mark));
+
+	if (ext_fd >= 0) {
+		sys_close(ext_fd); ext_fd = -1;
+	}
+
+	msleep(5000);
+
+	sys_sync();
+
+	
+	printk(KERN_ALERT "[%d.%ld] serial log saved : %s tid(%d %s) \n", ts.tv_sec,ts.tv_nsec,func, sys_gettid(),thread_name);
+
+	set_fs(old_fs);
+	{
+		char *argv[] = { "/bin/sync", NULL, NULL };
+		static char *envp[] = {
+				"HOME=/",
+				"TERM=linux",
+				"PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+		int ret = -EACCES;
+
+		ret = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+		//printk(KERN_EMERG "ret = %d\n", ret);
+	}
+
+	{
+		char *argv[] = { "/usr/bin/killall", "dlogutil", NULL };
+		static char *envp[] = {
+				"HOME=/",
+				"TERM=linux",
+				"PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+		int ret = -EACCES;
+
+		ret = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+		//printk(KERN_EMERG "ret = %d\n", ret);
+	}
+		
+	val = __raw_readl(DRIME4_VA_GPIO + 0x183FC);		// GPIO24(1)
+	val &= ~(1<<1);
+	__raw_writel(val, DRIME4_VA_GPIO + 0x183FC);		// GPIO24(1)
+#endif
+}
+
+void uart_save_log(void)
+{
+#ifdef _USE_RELEASE_LOG_
+	isKeyLogSave = 1;
+	schedule_work(&log_queue);
+#endif
+}
+
+#define R_LOG_LEVEL	4
+int uart_log_save_print(unsigned char *buf, int count)
+{
+#ifdef _USE_RELEASE_LOG_
+	int r_count = 0, level = 0, ret = 0;
+	unsigned char *r_buf = NULL;
+
+	if (r_log_buf == NULL)
+		return ret;
+
+	r_buf = buf;
+	r_count = count;
+	if (count > 3) {
+		/* is there log level */
+		if (r_buf[0] == '<' && r_buf[1] >= '0' && r_buf[1] <= '7' && r_buf[2] == '>') {
+			level = r_buf[1] - '0';
+		}
+
+		if (R_LOG_LEVEL < level) {
+			return ret;
+		}
+	}
+
+	if (r_log_idx + r_count > r_log_buf_size) {
+		memcpy(r_log_buf + r_log_idx, r_buf, r_log_buf_size-r_log_idx);
+		r_count -= r_log_buf_size-r_log_idx;
+		r_buf += r_log_buf_size-r_log_idx;
+		r_log_idx = 0;
+		r_log_overall = 1;
+	}
+	memcpy(r_log_buf + r_log_idx, r_buf, r_count);
+	r_log_idx = (r_log_idx + r_count) & (r_log_buf_size - 1);
+
+	return ret;
+#else
+	return 0;
+#endif
+}
+
 EXPORT_SYMBOL_GPL(uart_insert_char);
 
 EXPORT_SYMBOL(uart_write_wakeup);

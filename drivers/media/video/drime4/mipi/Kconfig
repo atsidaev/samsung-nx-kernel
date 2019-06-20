@@ -1,0 +1,10 @@
+#
+# D4 MIPI drivers configurations
+#
+
+config DRIME4_MIPI
+	tristate "Samsung DRIMe4 MIPI driver"
+	depends on DRIME4_PP_CORE && DRIME4_PP_SSIF
+	---help---
+	  This is a MIPI driver for Samsung DRIMe4
+

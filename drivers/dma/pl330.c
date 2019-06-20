@@ -1142,9 +1142,11 @@ static void _stop(struct pl330_thread *thrd)
 	/* Return if nothing needs to be done */
 	if (_state(thrd) == PL330_STATE_COMPLETING
 		  || _state(thrd) == PL330_STATE_KILLING
-		  || _state(thrd) == PL330_STATE_STOPPED)
+		  || _state(thrd) == PL330_STATE_STOPPED) {
 		return;
+	}
 
+                         
 	_emit_KILL(0, insn);
 
 	/* Stop generating interrupts for SEV */
@@ -2851,6 +2853,35 @@ static irqreturn_t pl330_irq_handler(int irq, void *data)
 	else
 		return IRQ_NONE;
 }
+
+/* MURU - Added for MIPI-PDMA */
+/* murugesa.p@samsung.com      */
+int pl330_external_intruction_start(unsigned int codebase, struct dma_chan *tx_chan)
+{
+	u8 insn[6] = {0, 0, 0, 0, 0, 0};
+	unsigned long flags;
+	struct pl330_thread *thrd;
+	struct _arg_GO go;
+	struct dma_pl330_chan *pch = to_pchan(tx_chan);
+
+	spin_lock_irqsave(&pch->lock, flags);
+
+	thrd = pch->pl330_chid;
+
+	go.chan = thrd->id;
+	go.addr = codebase;
+	go.ns = 0;
+	_emit_GO(0, insn, &go);
+
+	/* Only manager can execute GO */
+	_execute_DBGINSN(thrd, insn, true);
+
+	spin_unlock_irqrestore(&pch->lock, flags);
+
+	return 0;
+}
+/* MURU - Added for MIPI-PDMA */
+
 
 static int __devinit
 pl330_probe(struct amba_device *adev, const struct amba_id *id)

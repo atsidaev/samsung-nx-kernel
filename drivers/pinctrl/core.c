@@ -236,8 +236,10 @@ static int pinctrl_register_one_pin(struct pinctrl_dev *pctldev,
 	}
 
 	radix_tree_insert(&pctldev->pin_desc_tree, number, pindesc);
+	/*
 	pr_debug("registered pin %d (%s) on %s\n",
 		 number, pindesc->name, pctldev->desc->name);
+	*/
 	return 0;
 }
 
@@ -362,10 +364,12 @@ int pinctrl_get_group_selector(struct pinctrl_dev *pctldev,
 		const char *gname = pctlops->get_group_name(pctldev,
 							    group_selector);
 		if (!strcmp(gname, pin_group)) {
+			/*
 			dev_dbg(pctldev->dev,
 				"found group selector %u for %s\n",
 				group_selector,
 				pin_group);
+			*/
 			return group_selector;
 		}
 
@@ -1013,7 +1017,7 @@ static int pinctrl_pins_show(struct seq_file *s, void *what)
 	const struct pinctrl_ops *ops = pctldev->desc->pctlops;
 	unsigned i, pin;
 
-	seq_printf(s, "registered pins: %d\n", pctldev->desc->npins);
+	/* seq_printf(s, "registered pins: %d\n", pctldev->desc->npins); */
 
 	mutex_lock(&pinctrl_mutex);
 
@@ -1377,8 +1381,10 @@ static int pinctrl_check_ops(struct pinctrl_dev *pctldev)
 	    !ops->get_group_pins)
 		return -EINVAL;
 
+#ifdef CONFIG_OF
 	if (ops->dt_node_to_map && !ops->dt_free_map)
 		return -EINVAL;
+#endif
 
 	return 0;
 }

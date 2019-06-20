@@ -832,6 +832,36 @@ unregister:
 out:
 	return ret;
 }
+#ifdef CONFIG_SCORE_SNAPSHOT_DEBUG
+void zram_mem_show(void)
+{
+    int i;
+    u64 val = 0;
+    struct zram *zram;
+
+    if (!zram_devices)
+        return ;
+
+    for (i = 0; i < num_devices; i++)
+    {
+        zram = &zram_devices[i];
+
+        if (zram->init_done) {
+            val = zs_get_total_size_bytes(zram->mem_pool) +
+                ((u64)(zram->stats.pages_expand) << PAGE_SHIFT);
+            printk(KERN_INFO "mem used in zram device %d [pages : %lld + %d ] : %llu kB <-- ( %u kB : zero page : %u kB)\n"
+                   , i + 1
+                   , zs_get_total_size_bytes(zram->mem_pool) >> PAGE_SHIFT
+                   , zram->stats.pages_expand
+                   , val / 1024
+                   , zram->stats.pages_stored * 4
+                   , zram->stats.pages_zero * 4
+                  );
+        }
+    }
+}
+#endif
+
 
 static void __exit zram_exit(void)
 {

@@ -187,4 +187,6 @@ source "drivers/usb/gadget/Kconfig"
 
 source "drivers/usb/otg/Kconfig"
 
+# Samsung OTG/HSIC Support
+#source "drivers/usb/host/dwc_otg/driver/Kconfig"
 endif # USB_SUPPORT

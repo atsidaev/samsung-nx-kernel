@@ -29,6 +29,11 @@
 #include <linux/mfd/wm8994/registers.h>
 
 #include "wm8994.h"
+#include <mach/version_information.h>
+
+
+
+static struct wm8994 *wm8994;
 
 /**
  * wm8994_reg_read: Read a single WM8994 register.
@@ -123,12 +128,15 @@ static struct mfd_cell wm8994_regulator_devs[] = {
 
 static struct resource wm8994_codec_resources[] = {
 	{
+#ifndef CONFIG_SND_SOC_D4_WM8994
 		.start = WM8994_IRQ_TEMP_SHUT,
 		.end   = WM8994_IRQ_TEMP_WARN,
 		.flags = IORESOURCE_IRQ,
+#endif
 	},
 };
 
+#ifndef CONFIG_SND_SOC_D4_WM8994
 static struct resource wm8994_gpio_resources[] = {
 	{
 		.start = WM8994_IRQ_GPIO(1),
@@ -136,6 +144,7 @@ static struct resource wm8994_gpio_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	},
 };
+#endif
 
 static struct mfd_cell wm8994_devs[] = {
 	{
@@ -144,12 +153,14 @@ static struct mfd_cell wm8994_devs[] = {
 		.resources = wm8994_codec_resources,
 	},
 
+#ifndef CONFIG_SND_SOC_D4_WM8994
 	{
 		.name = "wm8994-gpio",
 		.num_resources = ARRAY_SIZE(wm8994_gpio_resources),
 		.resources = wm8994_gpio_resources,
 		.pm_runtime_no_callbacks = true,
 	},
+#endif
 };
 
 /*
@@ -300,17 +311,23 @@ static int wm8994_suspend(struct device *dev)
 
 static int wm8994_resume(struct device *dev)
 {
+	SW_DBG_P0_HIGH();
+
 	struct wm8994 *wm8994 = dev_get_drvdata(dev);
 	int ret;
 
 	/* We may have lied to the PM core about suspending */
 	if (!wm8994->suspended)
+	{
+		SW_DBG_P0_LOW();
 		return 0;
+	}
 
 	ret = regulator_bulk_enable(wm8994->num_supplies,
 				    wm8994->supplies);
 	if (ret != 0) {
 		dev_err(dev, "Failed to enable supplies: %d\n", ret);
+		SW_DBG_P0_LOW();
 		return ret;
 	}
 
@@ -328,11 +345,13 @@ static int wm8994_resume(struct device *dev)
 
 	wm8994->suspended = false;
 
+	SW_DBG_P0_LOW();
 	return 0;
 
 err_enable:
 	regulator_bulk_disable(wm8994->num_supplies, wm8994->supplies);
 
+	SW_DBG_P0_LOW();
 	return ret;
 }
 #endif
@@ -392,6 +411,11 @@ static __devinit int wm8994_device_init(struct wm8994 *wm8994, int irq)
 	const char *devname;
 	int ret, i, patch_regs;
 	int pulls = 0;
+
+#ifdef CONFIG_SND_SOC_D4_WM8994
+	pdata->power_enable();
+	udelay(700);
+#endif
 
 	dev_set_drvdata(wm8994->dev, wm8994);
 
@@ -629,7 +653,9 @@ static __devinit int wm8994_device_init(struct wm8994 *wm8994, int irq)
 					WM8994_LDO1_DISCH, 0);
 	}
 
+#ifndef CONFIG_SND_SOC_D4_WM8994
 	wm8994_irq_init(wm8994);
+#endif
 
 	ret = mfd_add_devices(wm8994->dev, -1,
 			      wm8994_devs, ARRAY_SIZE(wm8994_devs),
@@ -677,7 +703,6 @@ MODULE_DEVICE_TABLE(of, wm8994_of_match);
 static __devinit int wm8994_i2c_probe(struct i2c_client *i2c,
 				      const struct i2c_device_id *id)
 {
-	struct wm8994 *wm8994;
 	int ret;
 
 	wm8994 = devm_kzalloc(&i2c->dev, sizeof(struct wm8994), GFP_KERNEL);
@@ -718,7 +743,7 @@ static const struct i2c_device_id wm8994_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, wm8994_i2c_id);
 
-static UNIVERSAL_DEV_PM_OPS(wm8994_pm_ops, wm8994_suspend, wm8994_resume,
+static UNIVERSAL_DEV_PM_OPS(wm8994_pm_ops, wm8994_suspend, NULL,
 			    NULL);
 
 static struct i2c_driver wm8994_i2c_driver = {
@@ -734,6 +759,17 @@ static struct i2c_driver wm8994_i2c_driver = {
 };
 
 module_i2c_driver(wm8994_i2c_driver);
+
+
+int wm8994_delayed_resume(void) {
+	int ret;
+#ifdef CONFIG_PM
+	ret = wm8994_resume(wm8994->dev);
+#else
+	ret = 0;
+#endif
+	return ret;
+}
 
 MODULE_DESCRIPTION("Core support for the WM8994 audio CODEC");
 MODULE_LICENSE("GPL");

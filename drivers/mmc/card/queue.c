@@ -242,6 +242,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 #endif
 
 	if (!mqrq_cur->bounce_buf && !mqrq_prev->bounce_buf) {
+		host->max_blk_count = host->max_req_size / 512; // BLK_TUNING sync Nandan
 		blk_queue_bounce_limit(mq->queue, limit);
 		blk_queue_max_hw_sectors(mq->queue,
 			min(host->max_blk_count, host->max_req_size / 512));

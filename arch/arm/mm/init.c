@@ -730,6 +730,13 @@ void __init mem_init(void)
 		 */
 		sysctl_overcommit_memory = OVERCOMMIT_ALWAYS;
 	}
+#if ( defined(CONFIG_SCORE_FAST_BOOT) && !defined(CONFIG_BOOTLOADER_SNAPSHOT) )
+	{
+		extern void mark_text_nosave_region(unsigned long start_pfn, unsigned long end_pfn);
+		mark_text_nosave_region(__pa(_text) >> PAGE_SHIFT,
+							   __pa(_etext) >> PAGE_SHIFT);
+	}
+#endif
 }
 
 void free_initmem(void)

@@ -1609,7 +1609,7 @@ static int input_dev_resume(struct device *dev)
 
 static const struct dev_pm_ops input_dev_pm_ops = {
 	.suspend	= input_dev_suspend,
-	.resume		= input_dev_resume,
+//	.resume		= input_dev_resume,
 	.poweroff	= input_dev_suspend,
 	.restore	= input_dev_resume,
 };
@@ -2170,5 +2170,9 @@ static void __exit input_exit(void)
 	class_unregister(&input_class);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(input_init);
+#else
+fast_subsys_initcall(input_init);
+#endif
 module_exit(input_exit);

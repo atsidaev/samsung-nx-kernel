@@ -1,0 +1,30 @@
+#
+# GPIO infrastructure and expanders
+#
+
+menuconfig SCORE_FBDBG
+	bool "drime4 fast boot debug interface"
+	select SCORE_TEST
+	---help---
+	N/A
+
+if SCORE_FBDBG
+
+config GPIO_PK_DRIMeIV
+	bool "DRIMeIV GPIO PK"
+	default y
+	---help---
+		blah
+
+config SCORE_FBDBG_FILE
+	bool "print debugging message for pages of files"
+	default y
+	---help---
+		blah
+config SCORE_UBIDATA_STD_DEBUG
+	bool "information of ubidata size after STD"
+	default n
+	---help---
+		blah
+
+endif

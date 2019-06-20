@@ -509,6 +509,17 @@ config RTC_DRV_VRTC
 	style programming interface is mostly conserved, but any
 	updates are done via IPC calls to the system controller FW.
 
+
+config RTC_DRV_DRIME4
+        tristate "Samsung DRIME4 RTC"
+        depends on ARCH_DRIME4
+        help
+          RTC (Realtime Clock) driver for the clock inbuilt into the
+          Samsung DRIME4 SoCs. This can provide periodic
+          interrupt rates from 1Hz to 256Hz for user programs, and
+          wakeup from Alarm.
+
+
 config RTC_DRV_DS1216
 	tristate "Dallas DS1216"
 	depends on SNI_RM
@@ -1086,5 +1097,15 @@ config RTC_DRV_MXC
 
 	   This driver can also be built as a module, if so, the module
 	   will be called "rtc-mxc".
+
+config RTC_DRV_R2051K02
+	tristate "R2051K02 for Samsung DRIME4"
+	depends on ARCH_DRIME4
+	depends on RTC_CLASS
+	help
+          RTC (Realtime Clock) driver for the clock inbuilt into the
+          Samsung DRIME4 SoCs. This can provide periodic
+          interrupt rates from 1Hz to 256Hz for user programs, and
+          wakeup from Alarm.
 
 endif # RTC_CLASS

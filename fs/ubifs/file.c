@@ -83,6 +83,9 @@ static int read_block(struct inode *inode, void *addr, unsigned int block,
 			       le16_to_cpu(dn->compr_type));
 	if (err || len != out_len)
 		goto dump;
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+    score_dbg_info_add(0, out_len);
+#endif
 
 	/*
 	 * Data length can be less than a full block, even for blocks that are
@@ -652,6 +655,9 @@ static int populate_page(struct ubifs_info *c, struct page *page,
 					       le16_to_cpu(dn->compr_type));
 			if (err || len != out_len)
 				goto out_err;
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+            score_dbg_info_add(0, out_len);
+#endif
 
 			if (len < UBIFS_BLOCK_SIZE)
 				memset(addr + len, 0, UBIFS_BLOCK_SIZE - len);

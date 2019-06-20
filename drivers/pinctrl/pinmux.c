@@ -96,8 +96,7 @@ static int pin_request(struct pinctrl_dev *pctldev,
 		goto out;
 	}
 
-	dev_dbg(pctldev->dev, "request pin %d (%s) for %s\n",
-		pin, desc->name, owner);
+	//dev_dbg(pctldev->dev, "request pin %d (%s) for %s\n", pin, desc->name, owner);
 
 	if (gpio_range) {
 		/* There's no need to support multiple GPIO requests */

@@ -176,6 +176,7 @@ machine-$(CONFIG_ARCH_S5PC100)		:= s5pc100
 machine-$(CONFIG_ARCH_S5PV210)		:= s5pv210
 machine-$(CONFIG_ARCH_EXYNOS4)		:= exynos
 machine-$(CONFIG_ARCH_EXYNOS5)		:= exynos
+machine-$(CONFIG_ARCH_DRIME4)		:= drime4
 machine-$(CONFIG_ARCH_SA1100)		:= sa1100
 machine-$(CONFIG_ARCH_SHARK)		:= shark
 machine-$(CONFIG_ARCH_SHMOBILE) 	:= shmobile
@@ -255,6 +256,7 @@ core-y				+= arch/arm/net/
 core-y				+= $(machdirs) $(platdirs)
 
 drivers-$(CONFIG_OPROFILE)      += arch/arm/oprofile/
+drivers-$(CONFIG_PM)            += arch/arm/power/
 
 libs-y				:= arch/arm/lib/ $(libs-y)
 

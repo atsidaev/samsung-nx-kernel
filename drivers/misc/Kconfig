@@ -508,6 +508,13 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config JACK_MON
+	bool "Jacks Monitoring Driver"
+	default n
+	help
+	 Jacks Monitoring Driver
+
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -515,6 +522,95 @@ source "drivers/misc/iwmc3200top/Kconfig"
 source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
+config DRIME4_THERMISTER 
+	bool "Thermister Driver"
+	default n
+	help
+	 This driver provides temperature value from the Thermister Driver
+
+
+
+config SHUTTER
+	bool "Shutter Device Support"
+	depends on ARCH_DRIME4
+	default n
+	help
+	  This driver is for shutter of Camera
+
+source "drivers/misc/shutter/Kconfig"
+
 source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
+
+config STROBE
+	bool "Strobe Device Support"
+	depends on ARCH_DRIME4
+	default n
+	help
+	  This driver is for camera strobe
+
+source "drivers/misc/str/Kconfig"
+
+#
+# Lens communication driver configuration
+#
+config NXLENS
+	bool "Nx series lens support"
+	depends on ARCH_DRIME4
+	default n
+	help
+	  This driver is for nx series lens.
+source "drivers/misc/lens/Kconfig"
+
+source "drivers/misc/sprotocol/Kconfig"
+
+config TSU6712
+	bool "TSU6712 Micro USB Switch IC"
+	depends on I2C
+	default n
+	help
+	 This driver is for TI TSU6712 Micro USB Switch IC device.
+
+config TSU6111A
+	bool "TSU6111A Micro USB Switch IC"
+	depends on I2C
+	default n
+	help
+	 This driver is for TI TSU6111A Micro USB Switch IC device.
+
+config BD9361
+	bool "BD9361 PMIC"
+	depends on I2C
+	default n
+	help
+	 This driver is for TI BD9361IC device.
+
+config USBSTARTSTOP_SYSFS
+	bool "Enable SYSFS for USB PHY START/STOP"
+	depends on TSU6712 || TSU6111A
+	default n
+	help
+	 Option for Support SYSFS about USB PHY START/STOP.
+
+config BMA2XX
+	bool "BMA2XX Triaxial digital accelerometer"
+	depends on SPI
+	default n
+	help
+	 This driver is for Bosch BMA2XX trizial digital accelerometer device.
+
+config HDMI_HPD
+	bool "hdmi hotplug detection for x"
+	depends on DRM
+	default n
+	help
+	 This driver is for hdmi hotplug detection device.
+
+
+config ALT_REBOOT
+	bool "reboot enable for alt test"
+	default n
+	help
+	 This driver is for alt test
+
 endmenu

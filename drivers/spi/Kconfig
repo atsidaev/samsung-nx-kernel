@@ -323,6 +323,21 @@ config SPI_SH_MSIOF
 	help
 	  SPI driver for SuperH MSIOF blocks.
 
+config SPI_DRIME4
+        tristate "DRIME4 SPI controller"
+        depends on ARCH_DRIME4
+        select SPI_BITBANG
+        help
+          SPI driver for Samsung DRIME4 series ARM SoCs
+
+config SPI_UDD	
+	tristate "UDD SPI controller"
+	depends on UDD_SPI0||UDD_SPI1||UDD_SPI2||UDD_SPI3||UDD_SPI4||UDD_SPI5||UDD_SPI6||UDD_SPI7
+	select SPI_DRIME4
+	help
+	 SPI driver for Samsung DRIME4 series ARM SoCs
+
+
 config SPI_SH
 	tristate "SuperH SPI controller"
 	depends on SUPERH

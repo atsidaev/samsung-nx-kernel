@@ -1,0 +1,14 @@
+#
+# Video DRIMe4 configuration
+#
+
+config FB_DRIME4
+	tristate "DRIMe4 LCD FB "
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	---help---
+	  Frame buffer driver for Fujitsu Carmine/Coral-P(A)/Lime controllers.
+source "drivers/video/drime4/lcd_panel_manager/Kconfig"
+

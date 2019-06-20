@@ -1,0 +1,22 @@
+#
+# SHUTTER driver configuration
+#
+config SHUTTER_COPAL_AFE3141
+	bool "AFE3141 Focalplane Shutter Driver"
+	depends on SHUTTER
+	help
+	  This is focalplane shutter driver of Copal Ltd.
+	  This Driver is sample driver. (Do not use this)
+
+config SHUTTER_ALLEGRO
+	bool "Allegro Focalplane Shutter Driver"
+	depends on SHUTTER
+	help
+	  This is focalplane shutter driver of Samsung Ltd.
+
+config SHUTTER_COPAL
+	bool "Copal Focalplane Shutter Driver"
+	depends on SHUTTER
+	help
+	  This is focalplane shutter driver of Copal Ltd.
+

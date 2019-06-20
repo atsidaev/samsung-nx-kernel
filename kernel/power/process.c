@@ -21,7 +21,40 @@
 /* 
  * Timeout for stopping processes
  */
+#if defined (CONFIG_MACH_D4_NX300) || defined (CONFIG_MACH_D4_NX2000)
+#include <linux/d4_rmu.h>
+#include <linux/pinctrl/consumer.h>
+#include <mach/gpio.h>
+
+#define TIMEOUT	(1 * HZ)
+
+extern int oneshot;
+static void drime4_poweroff(void)
+{
+	struct d4_rmu_device * rmu;
+
+	printk(KERN_EMERG"- freezing timeout shutdown -\n");
+
+	rmu = d4_rmu_request();
+	if (rmu == -12)
+		return;
+
+	if(oneshot == 1 && gpio_get_value(GPIO_POWER_ON) == 0){
+		pinctrl_request_gpio(GPIO_1SHOT_HS);
+		gpio_request(GPIO_1SHOT_HS,"1shot_hs");
+		gpio_direction_output(GPIO_1SHOT_HS,1);
+		oneshot = 0;
+	}
+ 	d4_pcu_intr_mask_set(NULL);
+	d4_pcu_hold_set(rmu);
+	d4_pcu_ddroff_set(rmu);
+	d4_pcu_off_set(rmu);
+
+	d4_rmu_release(rmu);
+}
+#else
 #define TIMEOUT	(20 * HZ)
+#endif
 
 static int try_to_freeze_tasks(bool user_only)
 {
@@ -68,9 +101,18 @@ static int try_to_freeze_tasks(bool user_only)
 			wq_busy = freeze_workqueues_busy();
 			todo += wq_busy;
 		}
+#if defined (CONFIG_MACH_D4_NX300) || defined (CONFIG_MACH_D4_NX2000)
+		if (!todo)
+			break;
 
+		if(time_after(jiffies, end_time)) {
+			drime4_poweroff();
+			break;
+		}
+#else
 		if (!todo || time_after(jiffies, end_time))
 			break;
+#endif
 
 		if (pm_wakeup_pending()) {
 			wakeup = true;

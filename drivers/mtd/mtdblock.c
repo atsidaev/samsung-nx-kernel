@@ -398,7 +398,11 @@ static void __exit cleanup_mtdblock(void)
 	deregister_mtd_blktrans(&mtdblock_tr);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 module_init(init_mtdblock);
+#else
+fast_dev_initcall(init_mtdblock);
+#endif
 module_exit(cleanup_mtdblock);
 
 

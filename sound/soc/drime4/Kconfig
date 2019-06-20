@@ -1,0 +1,24 @@
+config SND_SOC_DRIME4
+	tristate "ASoC support for DRIME4"
+	depends on ARCH_DRIME4
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the DRIME4 SoCs Audio interfaces. You will also need to
+	  select the audio interfaces to support below.
+
+config SND_DRIME4_I2S
+	tristate
+
+config SND_SOC_D4_WM8994
+	tristate "SoC I2S audio support for DRIME4 - WM8994"
+	depends on SND_SOC_DRIME4
+	select SND_DRIME4_I2S
+	select SND_SOC_WM8994
+
+config SND_SOC_D4_HDMI
+	tristate "SoC I2S audio support for DRIME4 - HDMI"
+	depends on SND_SOC_DRIME4
+	select SND_DRIME4_I2S
+	select SND_SOC_HDMI
+	help
+	  Say Y if you want to add HDMI audio support. 

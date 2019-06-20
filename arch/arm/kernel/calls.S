@@ -387,8 +387,10 @@
 /* 375 */	CALL(sys_setns)
 		CALL(sys_process_vm_readv)
 		CALL(sys_process_vm_writev)
+		CALL(sys_sound_restart)
+
 #ifndef syscalls_counted
-.equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
+.equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls 
 #define syscalls_counted
 #endif
 .rept syscalls_padding

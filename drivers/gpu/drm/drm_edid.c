@@ -181,7 +181,7 @@ bool drm_edid_block_valid(u8 *raw_edid, int block)
 	for (i = 0; i < EDID_LENGTH; i++)
 		csum += raw_edid[i];
 	if (csum) {
-		DRM_ERROR("EDID checksum is invalid, remainder is %d\n", csum);
+		printk(KERN_ALERT "drm_edid_block_valid : EDID checksum is invalid, remainder is %d\n", csum);
 
 		/* allow CEA to slide through, switches mangle this */
 		if (raw_edid[0] != 0x02)
@@ -208,7 +208,7 @@ bool drm_edid_block_valid(u8 *raw_edid, int block)
 
 bad:
 	if (raw_edid) {
-		printk(KERN_ERR "Raw EDID:\n");
+		printk(KERN_ALERT "drm_edid_block_valid : Raw EDID:\n");
 		print_hex_dump(KERN_ERR, " \t", DUMP_PREFIX_NONE, 16, 1,
 			       raw_edid, EDID_LENGTH, false);
 	}
@@ -254,6 +254,8 @@ drm_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf,
 		      int block, int len)
 {
 	unsigned char start = block * EDID_LENGTH;
+	unsigned char segment = block >> 1;
+	unsigned char xfers = segment ? 3 : 2;
 	int ret, retries = 5;
 
 	/* The core i2c driver will automatically retry the transfer if the
@@ -265,6 +267,11 @@ drm_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf,
 	do {
 		struct i2c_msg msgs[] = {
 			{
+				.addr	= DDC_SEGMENT_ADDR,
+				.flags	= 0,
+				.len	= 1,
+				.buf	= &segment,
+			}, {
 				.addr	= DDC_ADDR,
 				.flags	= 0,
 				.len	= 1,
@@ -276,15 +283,17 @@ drm_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf,
 				.buf	= buf,
 			}
 		};
-		ret = i2c_transfer(adapter, msgs, 2);
+
+		ret = i2c_transfer(adapter, &msgs[3 - xfers], xfers);
+
 		if (ret == -ENXIO) {
 			DRM_DEBUG_KMS("drm: skipping non-existent adapter %s\n",
 					adapter->name);
 			break;
 		}
-	} while (ret != 2 && --retries);
+	} while (ret != xfers && --retries);
 
-	return ret == 2 ? 0 : -1;
+	return ret == xfers ? 0 : -1;
 }
 
 static bool drm_edid_is_zero(u8 *in_edid, int length)
@@ -399,10 +408,7 @@ struct edid *drm_get_edid(struct drm_connector *connector,
 	if (drm_probe_ddc(adapter))
 		edid = (struct edid *)drm_do_get_edid(connector, adapter);
 
-	connector->display_info.raw_edid = (char *)edid;
-
 	return edid;
-
 }
 EXPORT_SYMBOL(drm_get_edid);
 
@@ -1519,23 +1525,158 @@ do_cea_modes (struct drm_connector *connector, u8 *db, u8 len)
 	return modes;
 }
 
-static int
-add_cea_modes(struct drm_connector *connector, struct edid *edid)
+static int cea_hdmi_3d_present(u8 *hdmi)
 {
-	u8 * cea = drm_find_cea_extension(edid);
-	u8 * db, dbl;
-	int modes = 0;
+	u8 len, skip = 0;
+	int flags = 0;
 
-	if (cea && cea[1] >= 3) {
-		for (db = cea + 4; db < cea + cea[2]; db += dbl + 1) {
-			dbl = db[0] & 0x1f;
-			if (((db[0] & 0xe0) >> 5) == VIDEO_BLOCK)
+	len = hdmi[0] & 0x1f;
+
+	if (len < 8)
+        return false;
+
+	/* no HDMI_Video_present */
+	if (!(hdmi[8] & (1<<5)))
+        return false;
+
+	/* Latency_fields_present */
+	if (hdmi[8] & (1 << 7))
+        skip += 2;
+
+	/* I_Latency_fields_present */
+	if (hdmi[8] & (1 << 6))
+        skip += 2;
+
+	/* the declared length is not long enough */
+	if (len < (9 + skip))
+        return false;
+
+	if ((hdmi[9 + skip] & (1 << 7)) != 0) {
+		if (hdmi[10 + skip] & (7 << 5))
+			skip += (hdmi[10 + skip] >> 5);
+
+		if(hdmi[11 + skip] & (1 << 0))
+			flags |= (DRM_MODE_FLAG_3D_SIDE_BY_SIDE_HALF|DRM_MODE_FLAG_3D_FRAME_PACKING);
+		if(hdmi[12 + skip] & (1 << 0))
+			flags |= DRM_MODE_FLAG_3D_FRAME_PACKING;
+		if(hdmi[12 + skip] & (1 << 6))
+			flags |= DRM_MODE_FLAG_3D_TOP_BOTTOM;
+	}
+	
+	return flags;
+}
+
+static const struct {
+       int width, height, freq;
+       unsigned int select, value;
+       unsigned int formats;
+} s3d_mandatory_modes[] = {
+       { 1920, 1080, 30, DRM_MODE_FLAG_INTERLACE, 0,
+         DRM_MODE_FLAG_3D_FRAME_PACKING },
+       { 1920, 1080, 50, DRM_MODE_FLAG_INTERLACE, DRM_MODE_FLAG_INTERLACE,
+         DRM_MODE_FLAG_3D_SIDE_BY_SIDE_HALF },
+       { 1920, 1080, 60, DRM_MODE_FLAG_INTERLACE, DRM_MODE_FLAG_INTERLACE,
+         DRM_MODE_FLAG_3D_SIDE_BY_SIDE_HALF },
+};
+
+static void cea_hdmi_patch_mandatory_3d_mode(struct drm_display_mode *mode)
+{
+       int i;
+
+       for (i = 0; i < ARRAY_SIZE(s3d_mandatory_modes); i++) {
+               if (mode->hdisplay == s3d_mandatory_modes[i].width &&
+                   mode->vdisplay == s3d_mandatory_modes[i].height &&
+                   (mode->flags & s3d_mandatory_modes[i].select) ==
+                               s3d_mandatory_modes[i].value &&
+                   drm_mode_vrefresh(mode) == s3d_mandatory_modes[i].freq) {
+                       mode->flags |= s3d_mandatory_modes[i].formats;
+               }
+       }
+}
+
+static void cea_hdmi_patch_mandatory_3d_modes(struct drm_connector *connector)
+{
+	struct drm_display_mode *mode;
+
+	list_for_each_entry(mode, &connector->probed_modes, head) {
+		cea_hdmi_patch_mandatory_3d_mode(mode);
+	}
+}
+
+static int
+cea_db_payload_len(const u8 *db)
+{
+    return db[0] & 0x1f;
+}
+
+static int
+cea_db_tag(const u8 *db)
+{
+    return db[0] >> 5;
+}
+
+static int
+cea_revision(const u8 *cea)
+{
+	return cea[1];
+}
+
+static int
+cea_db_offsets(const u8 *cea, int *start, int *end)
+{
+    /* Data block offset in CEA extension block */
+    *start = 4;
+    *end = cea[2];
+    if (*end == 0)
+            *end = 127;
+    if (*end < 4 || *end > 127)
+            return -ERANGE;
+    return 0;
+}
+
+#define for_each_cea_db(cea, i, start, end) \
+        for ((i) = (start); (i) < (end) && (i) + cea_db_payload_len(&(cea)[(i)]) < (end); (i) += cea_db_payload_len(&(cea)[(i)]) + 1)
+
+static int
+ add_cea_modes(struct drm_connector *connector, struct edid *edid)
+ {
+ 	u8 * cea = drm_find_cea_extension(edid);
+	u8 * db, *hdmi = NULL, dbl;
+	int modes = 0;
+	int flags;
+
+	/* let's find the cea modes before looking at the hdmi vendor block
+	 * as the 3d_present flag needs to know about the supported modes
+	 * to infer the 3D modes */
+	if (cea && cea_revision(cea) >= 3) {
+		int i, start, end;
+
+		if (cea_db_offsets(cea, &start, &end))
+			return 0;
+
+		for_each_cea_db(cea, i, start, end) {
+		    db = &cea[i];
+		    dbl = cea_db_payload_len(db);
+
+		    switch(cea_db_tag(db)){
+			case VIDEO_BLOCK:
 				modes += do_cea_modes (connector, db+1, dbl);
+				break;
+			case VENDOR_BLOCK:
+			   hdmi = db;
+			   break;
+			}
 		}
 	}
 
-	return modes;
-}
+	if (hdmi != NULL) {
+		flags = cea_hdmi_3d_present(hdmi);
+		if (flags)
+			cea_hdmi_patch_mandatory_3d_modes(connector);
+	}
+
+ 	return modes;
+ }
 
 static void
 parse_hdmi_vsdb(struct drm_connector *connector, uint8_t *db)
@@ -1573,6 +1714,22 @@ monitor_name(struct detailed_timing *t, void *data)
 	if (t->data.other_data.type == EDID_DETAIL_MONITOR_NAME)
 		*(u8 **)data = t->data.other_data.data.str.str;
 }
+
+static bool cea_db_is_hdmi_vsdb(const u8 *db)
+{
+    int hdmi_id;
+
+    if (cea_db_tag(db) != VENDOR_BLOCK)
+            return false;
+
+    if (cea_db_payload_len(db) < 5)
+            return false;
+
+    hdmi_id = db[1] | (db[2] << 8) | (db[3] << 16);
+
+    return hdmi_id == HDMI_IDENTIFIER;
+}
+
 
 /**
  * drm_edid_to_eld - build ELD from EDID
@@ -1719,40 +1876,29 @@ EXPORT_SYMBOL(drm_select_eld);
  */
 bool drm_detect_hdmi_monitor(struct edid *edid)
 {
-	u8 *edid_ext;
-	int i, hdmi_id;
-	int start_offset, end_offset;
-	bool is_hdmi = false;
+    u8 *edid_ext;
+    int i;
+    int start_offset, end_offset;
 
-	edid_ext = drm_find_cea_extension(edid);
-	if (!edid_ext)
-		goto end;
+    edid_ext = drm_find_cea_extension(edid);
+    if (!edid_ext)
+            return false;
 
-	/* Data block offset in CEA extension block */
-	start_offset = 4;
-	end_offset = edid_ext[2];
+    if (cea_db_offsets(edid_ext, &start_offset, &end_offset))
+            return false;
 
-	/*
-	 * Because HDMI identifier is in Vendor Specific Block,
-	 * search it from all data blocks of CEA extension.
-	 */
-	for (i = start_offset; i < end_offset;
-		/* Increased by data block len */
-		i += ((edid_ext[i] & 0x1f) + 1)) {
-		/* Find vendor specific block */
-		if ((edid_ext[i] >> 5) == VENDOR_BLOCK) {
-			hdmi_id = edid_ext[i + 1] | (edid_ext[i + 2] << 8) |
-				  edid_ext[i + 3] << 16;
-			/* Find HDMI identifier */
-			if (hdmi_id == HDMI_IDENTIFIER)
-				is_hdmi = true;
-			break;
-		}
-	}
+    /*
+     * Because HDMI identifier is in Vendor Specific Block,
+     * search it from all data blocks of CEA extension.
+     */
+    for_each_cea_db(edid_ext, i, start_offset, end_offset) {
+            if (cea_db_is_hdmi_vsdb(&edid_ext[i]))
+                    return true;
+    }
 
-end:
-	return is_hdmi;
+    return false;
 }
+
 EXPORT_SYMBOL(drm_detect_hdmi_monitor);
 
 /**
@@ -1932,6 +2078,121 @@ int drm_add_edid_modes(struct drm_connector *connector, struct edid *edid)
 	return num_modes;
 }
 EXPORT_SYMBOL(drm_add_edid_modes);
+
+int drm_add_modes_required(struct drm_connector *connector)
+{
+	int i, count = 0;
+	struct drm_display_mode *newmode;
+	struct drm_display_mode *mode;
+	struct drm_display_mode *pmode;
+	int found_it;
+	
+	struct drm_display_mode add_modes[] = {
+	/* 4 - 1280x720@60Hz */
+	{ DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1390,
+		   1430, 1650, 0, 720, 725, 730, 750, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) },
+	/* 19 - 1280x720@50Hz */
+	{ DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1720,
+		   1760, 1980, 0, 720, 725, 730, 750, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) },
+	};
+
+	for (i = 0; i < (sizeof(add_modes) / sizeof(struct drm_display_mode)); i++) {
+		found_it = 0;
+		pmode = &add_modes[i];
+		
+		/* go through current modes checking for the new probed mode */
+		list_for_each_entry(mode, &connector->modes, head) {
+			if (drm_mode_equal(pmode, mode)) {
+				found_it = 1;
+				/* if equal delete the probed mode */
+				mode->status = pmode->status;
+				/* Merge type bits together */
+				mode->type |= pmode->type;
+				break;
+			}
+		}
+
+		if (!found_it) {
+			newmode = drm_mode_duplicate(connector->dev, pmode);
+
+			if (newmode) {
+				list_move_tail(&newmode->head, &connector->modes);
+				count++;
+			}			
+		}
+	}
+	
+	return count;
+}
+EXPORT_SYMBOL(drm_add_modes_required);
+
+int drm_add_modes_dvi_required(struct drm_connector *connector)
+{
+	int i, count = 0;
+	struct drm_display_mode *newmode;
+	struct drm_display_mode *mode;
+	struct drm_display_mode *pmode;
+	int found_it;
+	
+	struct drm_display_mode add_modes[] = {
+	/* 3 - 720x480@60Hz */
+	{ DRM_MODE("720x480f", DRM_MODE_TYPE_DRIVER, 27000, 720, 736,
+		   798, 858, 0, 480, 489, 495, 525, 0,
+		   DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC) },
+	/* 17 - 720x576@50Hz */
+	{ DRM_MODE("720x576f", DRM_MODE_TYPE_DRIVER, 27000, 720, 732,
+		   796, 864, 0, 576, 581, 586, 625, 0,
+		   DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC) },
+	/* 4 - 1280x720@60Hz */
+	{ DRM_MODE("1280x720f", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1390,
+		   1430, 1650, 0, 720, 725, 730, 750, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) },
+	/* 19 - 1280x720@50Hz */
+	{ DRM_MODE("1280x720f", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1720,
+		   1760, 1980, 0, 720, 725, 730, 750, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) },
+	/* 16 - 1920x1080@60Hz */
+	{ DRM_MODE("1920x1080f", DRM_MODE_TYPE_DRIVER, 148500, 1920, 2008,
+		   2052, 2200, 0, 1080, 1084, 1089, 1125, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) },
+	/* 31 - 1920x1080@50Hz */
+	{ DRM_MODE("1920x1080f", DRM_MODE_TYPE_DRIVER, 148500, 1920, 2448,
+		   2492, 2640, 0, 1080, 1084, 1089, 1125, 0,
+		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) },
+	};
+
+	for (i = 0; i < (sizeof(add_modes) / sizeof(struct drm_display_mode)); i++) {
+		found_it = 0;
+		pmode = &add_modes[i];
+		
+		/* go through current modes checking for the new probed mode */
+		list_for_each_entry(mode, &connector->modes, head) {
+			if (drm_mode_equal(pmode, mode)) {
+				found_it = 1;
+				/* if equal delete the probed mode */
+				mode->status = pmode->status;
+				/* Merge type bits together */
+				mode->type |= pmode->type;
+				break;
+			}
+		}
+
+		if (!found_it) {
+			newmode = drm_mode_duplicate(connector->dev, pmode);
+
+			if (newmode) {
+				list_move_tail(&newmode->head, &connector->modes);
+				count++;
+			}			
+		}
+	}
+
+	return count;
+}
+EXPORT_SYMBOL(drm_add_modes_dvi_required);
+
 
 /**
  * drm_add_modes_noedid - add modes for the connectors without EDID

@@ -1,0 +1,11 @@
+#config TEST_PWM_DEVICE
+#	bool "Test PWM Driver"
+#	depends on TEST_PWM
+#	help
+
+config STROBE_CONTROLLER
+	bool "Strobe controller driver"
+	depends on STROBE
+	help
+	  This driver supports SPI transfering and PWM control for strobe.
+	  

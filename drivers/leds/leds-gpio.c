@@ -47,6 +47,8 @@ static void gpio_led_work(struct work_struct *work)
 		gpio_set_value_cansleep(led_dat->gpio, led_dat->new_level);
 }
 
+extern unsigned long is_poweroff_halt_status;
+
 static void gpio_led_set(struct led_classdev *led_cdev,
 	enum led_brightness value)
 {
@@ -74,8 +76,10 @@ static void gpio_led_set(struct led_classdev *led_cdev,
 			led_dat->platform_gpio_blink_set(led_dat->gpio, level,
 							 NULL, NULL);
 			led_dat->blinking = 0;
-		} else
-			gpio_set_value(led_dat->gpio, level);
+		} else {
+			if (is_poweroff_halt_status == 0)
+				gpio_set_value(led_dat->gpio, level);
+		}
 	}
 }
 
@@ -90,7 +94,7 @@ static int gpio_blink_set(struct led_classdev *led_cdev,
 						delay_on, delay_off);
 }
 
-static int __devinit create_gpio_led(const struct gpio_led *template,
+static int __devinit create_gpio_led(struct gpio_led *template,
 	struct gpio_led_data *led_dat, struct device *parent,
 	int (*blink_set)(unsigned, int, unsigned long *, unsigned long *))
 {
@@ -98,6 +102,17 @@ static int __devinit create_gpio_led(const struct gpio_led *template,
 
 	led_dat->gpio = -1;
 
+	/*
+	 * initialize gpio number for multiple b/d supporting
+	 */
+	if (template->gpio == (unsigned)-1)
+	{
+		if (strcmp(template->name, "af") == 0)
+			template->gpio = GPIO_AF_LED;
+		else if (strcmp(template->name, "card") == 0)
+			template->gpio = GPIO_CARD_LED;
+	}
+	
 	/* skip leds that aren't available */
 	if (!gpio_is_valid(template->gpio)) {
 		printk(KERN_INFO "Skipping unavailable LED gpio %d (%s)\n",
@@ -273,12 +288,13 @@ static int __devexit gpio_led_remove(struct platform_device *pdev)
 	struct gpio_leds_priv *priv = dev_get_drvdata(&pdev->dev);
 	int i;
 
-	for (i = 0; i < priv->num_leds; i++)
-		delete_gpio_led(&priv->leds[i]);
+	if(priv !=NULL){		
+		for (i = 0; i < priv->num_leds; i++)
+			delete_gpio_led(&priv->leds[i]);
 
-	dev_set_drvdata(&pdev->dev, NULL);
-	kfree(priv);
-
+		dev_set_drvdata(&pdev->dev, NULL);
+		kfree(priv);
+	}
 	return 0;
 }
 
@@ -292,9 +308,24 @@ static struct platform_driver gpio_led_driver = {
 	},
 };
 
-module_platform_driver(gpio_led_driver);
+MODULE_ALIAS("platform:leds-gpio");
+static int __init gpio_led_init(void)
+{
+	return platform_driver_register(&gpio_led_driver);
+}
 
+static void __exit gpio_led_exit(void)
+{
+	platform_driver_unregister(&gpio_led_driver);
+}
+
+#ifndef CONFIG_SCORE_FAST_RESUME
+module_init(gpio_led_init);
+#else
+fast_dev_initcall(gpio_led_init);
+#endif
+module_exit(gpio_led_exit);
 MODULE_AUTHOR("Raphael Assenat <raph@8d.com>, Trent Piepho <tpiepho@freescale.com>");
 MODULE_DESCRIPTION("GPIO LED driver");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:leds-gpio");
+

@@ -129,9 +129,14 @@ int drm_helper_probe_single_connector_modes(struct drm_connector *connector,
 		count = drm_add_modes_noedid(connector, 1024, 768);
 	if (count == 0)
 		goto prune;
-
+	
 	drm_mode_connector_list_update(connector);
-
+	
+	/* work around for 3d 50i & nt, pal not support mode */
+	if (connector->display_info.raw_edid) {
+		count += drm_add_modes_dvi_required(connector);
+	}
+	
 	if (maxX && maxY)
 		drm_mode_validate_size(dev, &connector->modes, maxX,
 				       maxY, 0);
@@ -160,6 +165,11 @@ prune:
 			drm_get_connector_name(connector));
 	list_for_each_entry(mode, &connector->modes, head) {
 		mode->vrefresh = drm_mode_vrefresh(mode);
+
+		if ((mode->hdisplay == 1920) && (mode->vdisplay == 1080)) {
+			mode->hdisplay = 960;
+			mode->vdisplay = 540;
+		}
 
 		drm_mode_set_crtcinfo(mode, CRTC_INTERLACE_HALVE_V);
 		drm_mode_debug_printmodeline(mode);
@@ -962,7 +972,11 @@ static void output_poll_execute(struct work_struct *work)
 
 	if (changed) {
 		/* send a uevent + call fbdev */
-		drm_sysfs_hotplug_event(dev);
+		/* Nandan: event in invert form of old_status*/
+		if(old_status == connector_status_connected)
+			drm_sysfs_hotplug_event(dev, 0);
+		else
+			drm_sysfs_hotplug_event(dev, 1);
 		if (dev->mode_config.funcs->output_poll_changed)
 			dev->mode_config.funcs->output_poll_changed(dev);
 	}

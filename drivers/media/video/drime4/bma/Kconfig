@@ -1,0 +1,8 @@
+#
+# D4 BMA drivers configurations
+#
+
+config DRIME4_BMA
+	tristate "Samsung DRIMe4 BMA driver"
+	---help---
+	  This is a BMA driver for Samsung DRIMe4

@@ -1,0 +1,26 @@
+#
+# selection configurations for Main LCD 2 Panel Selection
+#
+
+choice
+	prompt "MLCD2 selection"
+	depends on MAIN_LCD_2_SELECT
+	---help---
+	  Main LCD2 selection
+
+config MLCD_2_PANEL_1
+	bool "eMagin XGA EVF"
+	---help---
+	  This is eMagin XGA EVF.
+
+config MLCD_2_PANEL_2
+	bool "Main LCD Panel 2"
+	---help---
+	  This is a LCD Panel 2.
+
+config MLCD_2_PANEL_3
+	bool "Main LCD Panel 3"
+	---help---
+	  This is a LCD Panel 3.
+
+endchoice

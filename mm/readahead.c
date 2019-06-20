@@ -565,7 +565,11 @@ page_cache_async_readahead(struct address_space *mapping,
 }
 EXPORT_SYMBOL_GPL(page_cache_async_readahead);
 
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+ssize_t
+#else
 static ssize_t
+#endif
 do_readahead(struct address_space *mapping, struct file *filp,
 	     pgoff_t index, unsigned long nr)
 {

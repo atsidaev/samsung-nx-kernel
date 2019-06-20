@@ -1,0 +1,60 @@
+#
+# selection configurations for Main LCD 1 Panel Selection
+#
+
+#choice
+#	prompt "MLCD1 selection"
+#	depends on MAIN_LCD_1_SELECT
+#	---help---
+#	  Main LCD1 selection
+
+config MLCD_1_PANEL_1
+	bool "SMD VGA 3.0 OLED"
+	depends on MAIN_LCD_1_SELECT
+	---help---
+	  This is a LCD Panel 1.
+
+config MLCD_1_PANEL_2
+	bool "AUO VGA 3.0 LCD"
+	depends on MAIN_LCD_1_SELECT
+	---help---
+	  This is a LCD Panel 2.
+
+config MLCD_1_PANEL_3
+	bool "SMD WVGA 3.3 Portrait LCD"
+	depends on MAIN_LCD_1_SELECT
+	---help---
+	  This is a LCD Panel 3.
+
+config MLCD_1_PANEL_4
+	bool "SMD WVGA 3.5 Portrait LCD"
+	depends on MAIN_LCD_1_SELECT
+	---help---
+	  This is a LCD Panel 4.
+
+config MLCD_1_PANEL_5
+	bool "Epson XGA EVF"
+	depends on MAIN_LCD_1_SELECT
+	---help---
+	  This is a LCD Panel 5.
+
+config MLCD_1_PANEL_6
+	bool "eMagin XGA EVF"
+	depends on MAIN_LCD_1_SELECT
+	---help---
+	  This is a LCD Panel 6.
+
+config MLCD_1_PANEL_7
+	bool "SMD WVGA 3.69 Portrait LCD"
+	depends on MAIN_LCD_1_SELECT
+	---help---
+	  This is a LCD Panel 7.
+
+config MLCD_1_PANEL_8
+	bool "SMD WVGA 3.3 Portrait LCD, second version"
+	depends on MAIN_LCD_1_SELECT
+	---help---
+	  This is a LCD Panel 8.
+
+#endchoice
+

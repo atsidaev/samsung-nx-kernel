@@ -1,0 +1,16 @@
+#
+# GPU device configurations
+#
+
+menuconfig DRIME4_GPU
+	bool "GPU support"
+
+if DRIME4_GPU
+#menu "GPU support"
+
+source "drivers/gpu/d4_gpu_1_7_RC867897/Kconfig"
+
+endif # DRIME4_GPU
+
+#endmenu
+

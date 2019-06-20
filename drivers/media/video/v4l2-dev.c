@@ -978,7 +978,11 @@ static void __exit videodev_exit(void)
 	unregister_chrdev_region(dev, VIDEO_NUM_DEVICES);
 }
 
+#ifndef CONFIG_SCORE_FAST_RESUME
 subsys_initcall(videodev_init);
+#else
+fast_subsys_initcall(videodev_init);
+#endif
 module_exit(videodev_exit)
 
 MODULE_AUTHOR("Alan Cox, Mauro Carvalho Chehab <mchehab@infradead.org>");

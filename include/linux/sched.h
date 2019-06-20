@@ -1581,7 +1581,15 @@ struct task_struct {
 #ifdef CONFIG_UPROBES
 	struct uprobe_task *utask;
 #endif
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+    unsigned long ubi_read;
+    unsigned long ubifs_read;
+#endif
 };
+#ifdef CONFIG_SCORE_UBIDATA_STD_DEBUG
+void score_dbg_info_print(struct task_struct *p);
+void score_dbg_info_add(int ubi_read, int ubifs_read);
+#endif
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)

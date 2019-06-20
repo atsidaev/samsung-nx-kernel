@@ -1,0 +1,6 @@
+#
+# Lens communication driver configuration
+#
+config SLAVE_PROTOCOL
+	bool "Slave Protocol SPI communication manager driver"
+

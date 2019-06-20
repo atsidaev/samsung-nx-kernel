@@ -2631,7 +2631,7 @@ static void is_complete(struct Scsi_Host *shpnt)
  */
 static void aha152x_error(struct Scsi_Host *shpnt, char *msg)
 {
-	printk(KERN_EMERG "\naha152x%d: %s\n", HOSTNO, msg);
+	printk(KERN_ERR "\naha152x%d: %s\n", HOSTNO, msg);
 	show_queues(shpnt);
 	panic("aha152x panic\n");
 }

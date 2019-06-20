@@ -264,6 +264,8 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 
 static DEFINE_RAW_SPINLOCK(die_lock);
 
+extern void uart_save_log_to_card(int saveType , char * func);
+
 /*
  * This function is protected against re-entrancy.
  */
@@ -290,6 +292,14 @@ void die(const char *str, struct pt_regs *regs, int err)
 	bust_spinlocks(0);
 	add_taint(TAINT_DIE);
 	raw_spin_unlock_irq(&die_lock);
+	//save hang log file.
+	uart_save_log_to_card(1, __FUNCTION__);
+#ifndef CONFIG_DRIME4_CONTINUE_AFTER_FAULT //donghyeon.kim (2013-01-23 21:32:07)    
+	while(1)
+	{
+		msleep(1000);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */    
 	oops_exit();
 
 	if (in_interrupt())
@@ -418,6 +428,15 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	}
 #endif
 
+	//save hang log file.
+	uart_save_log_to_card(1,__FUNCTION__);
+#ifndef CONFIG_DRIME4_CONTINUE_AFTER_FAULT //donghyeon.kim (2013-01-23 21:32:07)    
+	while(1)
+	{
+		msleep(1000);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 	info.si_signo = SIGILL;
 	info.si_errno = 0;
 	info.si_code  = ILL_ILLOPC;
@@ -467,6 +486,15 @@ static int bad_syscall(int n, struct pt_regs *regs)
 		dump_instr(KERN_ERR, regs);
 	}
 #endif
+
+	//save hang log file.
+	uart_save_log_to_card(1,__FUNCTION__);
+#ifndef CONFIG_DRIME4_CONTINUE_AFTER_FAULT //donghyeon.kim (2013-01-23 21:32:07)    
+	while(1)
+	{
+		msleep(1000);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	info.si_signo = SIGILL;
 	info.si_errno = 0;
@@ -654,6 +682,16 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		}
 	}
 #endif
+
+	//save hang log file.
+	uart_save_log_to_card(1,__FUNCTION__);
+#ifndef CONFIG_DRIME4_CONTINUE_AFTER_FAULT //donghyeon.kim (2013-01-23 21:32:07)    
+	while(1)
+	{
+		msleep(1000);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
+
 	info.si_signo = SIGILL;
 	info.si_errno = 0;
 	info.si_code  = ILL_ILLTRP;
@@ -728,6 +766,15 @@ baddataabort(int code, unsigned long instr, struct pt_regs *regs)
 		show_pte(current->mm, addr);
 	}
 #endif
+
+	//save hang log file.
+	uart_save_log_to_card(1,__FUNCTION__);
+#ifndef CONFIG_DRIME4_CONTINUE_AFTER_FAULT //donghyeon.kim (2013-01-23 21:32:07)    
+	while(1)
+	{
+		msleep(1000);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */
 
 	info.si_signo = SIGILL;
 	info.si_errno = 0;

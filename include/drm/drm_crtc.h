@@ -1034,6 +1034,9 @@ extern struct drm_display_mode *drm_gtf_mode_complex(struct drm_device *dev,
 				int hdisplay, int vdisplay, int vrefresh,
 				bool interlaced, int margins, int GTF_M,
 				int GTF_2C, int GTF_K, int GTF_2J);
+extern int drm_add_modes_required(struct drm_connector *connector);
+extern int drm_add_modes_dvi_required(struct drm_connector *connector);
+
 extern int drm_add_modes_noedid(struct drm_connector *connector,
 				int hdisplay, int vdisplay);
 

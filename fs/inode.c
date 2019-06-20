@@ -49,11 +49,17 @@
  * iunique_lock
  *   inode_hash_lock
  */
-
-static unsigned int i_hash_mask __read_mostly;
+#if defined(CONFIG_SCORE_FBDBG_FILE) || \
+    defined(CONFIG_PM_SCORE_EXTENDED_SNAPSHOT)
+unsigned int i_hash_shift __read_mostly;
+struct hlist_head *inode_hashtable __read_mostly;
+__cacheline_aligned_in_smp DEFINE_SPINLOCK(inode_hash_lock);
+#else
 static unsigned int i_hash_shift __read_mostly;
 static struct hlist_head *inode_hashtable __read_mostly;
 static __cacheline_aligned_in_smp DEFINE_SPINLOCK(inode_hash_lock);
+#endif
+static unsigned int i_hash_mask __read_mostly;
 
 __cacheline_aligned_in_smp DEFINE_SPINLOCK(inode_sb_list_lock);
 
@@ -1883,3 +1889,15 @@ void inode_dio_done(struct inode *inode)
 		wake_up_bit(&inode->i_state, __I_DIO_WAKEUP);
 }
 EXPORT_SYMBOL(inode_dio_done);
+
+#if defined(CONFIG_SCORE_FBDBG_FILE) || \
+    defined(CONFIG_PM_SCORE_EXTENDED_SNAPSHOT)
+void lock_inode_hash_lock(void)
+{
+	spin_lock(&inode_hash_lock);
+}
+void unlock_inode_hash_lock(void)
+{
+	spin_unlock(&inode_hash_lock);
+}
+#endif

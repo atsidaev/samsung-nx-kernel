@@ -1,0 +1,8 @@
+#
+# D4 SRP drivers configurations
+#
+
+config DRIME4_SRP
+	tristate "Samsung DRIMe4 SRP driver"
+	---help---
+	  This is a SRP driver for Samsung DRIMe4

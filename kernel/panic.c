@@ -23,7 +23,7 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
-
+#include <linux/syscalls.h>
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
@@ -57,6 +57,8 @@ void __weak panic_smp_self_stop(void)
 	while (1)
 		cpu_relax();
 }
+
+extern void uart_save_log_to_card(int saveType , char * func);
 
 /**
  *	panic - halt the system
@@ -92,7 +94,12 @@ void panic(const char *fmt, ...)
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
-	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
+	struct timespec ts;
+	char thread_name[80] = {0,};
+	ktime_get_ts(&ts);
+	get_task_comm(thread_name,current);
+	
+	printk(KERN_EMERG "[%d.%ld] (%d %s) Kernel panic - not syncing: %s\n",ts.tv_sec,ts.tv_nsec,sys_gettid(),thread_name,buf);
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing
@@ -101,6 +108,14 @@ void panic(const char *fmt, ...)
 		dump_stack();
 #endif
 
+	//save hang log file.
+	uart_save_log_to_card(1,__FUNCTION__);
+#ifndef CONFIG_DRIME4_CONTINUE_AFTER_FAULT //donghyeon.kim (2013-01-23 21:32:07)
+	while(1)
+	{
+		msleep(1000);
+	}
+#endif /* CONFIG_ARCH_S5C7380_BCM4325 */    
 	/*
 	 * If we have crashed and we have a crash kernel loaded let it handle
 	 * everything else.

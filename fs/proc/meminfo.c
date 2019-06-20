@@ -15,6 +15,11 @@
 #include <asm/pgtable.h>
 #include "internal.h"
 
+/*
+ * tempoary debugging global varaible, will be removed after heap area debugging
+ * add by sj.sj.kim
+ */
+
 void __attribute__((weak)) arch_report_meminfo(struct seq_file *m)
 {
 }

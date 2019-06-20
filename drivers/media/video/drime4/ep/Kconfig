@@ -1,0 +1,11 @@
+#
+# DSC drivers configurations
+#
+
+config DRIME4_EP
+	tristate "Samsung DRIMe4 EP driver"
+#        select VIDEO_DEV
+#        select VIDEO_V4L2
+
+	help
+		This is a device driver for Samsung Drime IV EP driver using ioctl.

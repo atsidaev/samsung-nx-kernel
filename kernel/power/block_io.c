@@ -14,6 +14,10 @@
 
 #include "power.h"
 
+#ifdef CONFIG_SWSUSP_HEADER_IMAGE_TAIL
+extern long hib_image_tail;
+#endif
+
 /**
  *	submit - submit BIO request.
  *	@rw:	READ or WRITE.
@@ -70,6 +74,10 @@ int hib_bio_read_page(pgoff_t page_off, void *addr, struct bio **bio_chain)
 
 int hib_bio_write_page(pgoff_t page_off, void *addr, struct bio **bio_chain)
 {
+#ifdef CONFIG_SWSUSP_HEADER_IMAGE_TAIL
+	if (hib_image_tail < page_off)
+		hib_image_tail = page_off;
+#endif
 	return submit(WRITE, hib_resume_bdev, page_off * (PAGE_SIZE >> 9),
 			virt_to_page(addr), bio_chain);
 }
@@ -101,3 +109,16 @@ int hib_wait_on_bio_chain(struct bio **bio_chain)
 	*bio_chain = NULL;
 	return ret;
 }
+#ifdef CONFIG_PM_SCORE_EXTENDED_SNAPSHOT
+int bio_write_page(struct block_device *bdev, pgoff_t page_off, void *addr, struct bio **bio_chain)
+{
+    printk(KERN_INFO "page_off [%d] addr [0x%p] page[0x%p]\n", page_off, addr, virt_to_page(addr));
+	return submit(WRITE, bdev, page_off * (PAGE_SIZE >> 9),
+			virt_to_page(addr), bio_chain);
+}
+int bio_read_page(struct block_device *bdev, pgoff_t page_off, void *addr, struct bio **bio_chain)
+{
+	return submit(READ, bdev, page_off * (PAGE_SIZE >> 9),
+			virt_to_page(addr), bio_chain);
+}
+#endif

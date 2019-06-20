@@ -176,7 +176,7 @@ int ubifs_orphan_start_commit(struct ubifs_info *c)
 		*last = orphan;
 		last = &orphan->cnext;
 	}
-	*last = NULL;
+	*last = orphan->cnext;
 	c->cmt_orphans = c->new_orphans;
 	c->new_orphans = 0;
 	dbg_cmt("%d orphans to commit", c->cmt_orphans);
@@ -382,7 +382,7 @@ static int consolidate(struct ubifs_info *c)
 			last = &orphan->cnext;
 			cnt += 1;
 		}
-		*last = NULL;
+		*last = orphan->cnext;
 		ubifs_assert(cnt == c->tot_orphans - c->new_orphans);
 		c->cmt_orphans = cnt;
 		c->ohead_lnum = c->orph_first;
